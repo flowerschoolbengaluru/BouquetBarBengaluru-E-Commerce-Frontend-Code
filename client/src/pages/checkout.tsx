@@ -31,7 +31,8 @@ import {
   Phone,
   Mail,
   Eye,
-  Truck
+  Truck,
+  CreditCard
 } from "lucide-react";
 import { useCart } from "@/hooks/cart-context";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ import bouquetBarLogo from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.pn
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { loadRazorpay, createRazorpayOrder, verifyRazorpayPayment, type RazorpayPaymentOptions } from "@/lib/razorpay";
 
 interface CartItem {
   id: string;
@@ -1138,6 +1140,7 @@ export default function Checkout() {
     clearCouponError,
     validatePaymentData,
     placeOrder,
+    updatePaymentData,
     setShippingAddress
   } = useCart();
 
@@ -1148,6 +1151,7 @@ export default function Checkout() {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('cart');
   const [completedSteps, setCompletedSteps] = useState<CheckoutStep[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
   const [, setLocation] = useLocation();
   const [selectedAddressData, setSelectedAddressData] = useState<AddressData | null>(null);
 
@@ -1304,14 +1308,137 @@ export default function Checkout() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const steps: CheckoutStep[] = ['cart', 'shipping', 'payment', 'review'];
     const currentIndex = steps.indexOf(currentStep);
 
     handleStepComplete(currentStep);
 
+    // If we're on the shipping step and moving to payment, trigger Razorpay
+    if (currentStep === 'shipping' && currentIndex < steps.length - 1) {
+      await handleRazorpayPayment();
+      return;
+    }
+
     if (currentIndex < steps.length - 1) {
       setCurrentStep(steps[currentIndex + 1]);
+    }
+  };
+
+  const handleRazorpayPayment = async () => {
+    try {
+      // Calculate total amount
+      const calculatedTotal = totalPrice + paymentCharge - discountAmount;
+      
+      if (calculatedTotal <= 0) {
+        toast({
+          title: "Error",
+          description: "Invalid order amount",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Load Razorpay script
+      const Razorpay = await loadRazorpay();
+
+      // Create Razorpay order
+      const orderData = {
+        amount: calculatedTotal,
+        currency: 'INR',
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          customer_name: shippingAddress?.fullName || 'Customer',
+          customer_email: shippingAddress?.email || '',
+          items_count: items.length.toString()
+        }
+      };
+
+      const { order, key } = await createRazorpayOrder(orderData);
+
+      // Razorpay payment options
+      const options: RazorpayPaymentOptions = {
+        key: key,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Bouquet Bar',
+        description: 'Payment for your order',
+        image: bouquetBarLogo,
+        prefill: {
+          name: shippingAddress?.fullName || '',
+          email: shippingAddress?.email || '',
+          contact: shippingAddress?.phone || ''
+        },
+        theme: {
+          color: '#ec4899' // Pink theme to match your brand
+        },
+        handler: async (response: any) => {
+          try {
+            // Verify payment
+            const verificationResult = await verifyRazorpayPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+
+            if (verificationResult.success) {
+              toast({
+                title: "Payment Successful!",
+                description: "Processing your order...",
+              });
+              
+              // Update payment data to reflect successful payment
+              updatePaymentData({
+                selectedMethod: 'card', // or whatever method was used
+                // Add payment confirmation details
+              });
+
+              // Mark payment as completed and move to simplified review
+              setIsPaymentCompleted(true);
+              setCurrentStep('review');
+
+              toast({
+                title: "Order Review",
+                description: "Please review your order details below.",
+              });
+            } else {
+              toast({
+                title: "Payment Verification Failed",
+                description: "Please try again or contact support.",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast({
+              title: "Payment Verification Error",
+              description: "There was an issue verifying your payment. Please contact support.",
+              variant: "destructive",
+            });
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast({
+              title: "Payment Cancelled",
+              description: "You can continue shopping or try payment again.",
+            });
+          }
+        }
+      };
+
+      // Open Razorpay payment modal
+      const rzp = new Razorpay(options);
+      rzp.open();
+
+    } catch (error) {
+      console.error('Razorpay payment error:', error);
+      toast({
+        title: "Payment Error",
+        description: "Failed to initialize payment. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1863,11 +1990,158 @@ export default function Checkout() {
 
                 {currentStep === 'review' && (
                   <div className="mx-1 sm:mx-0">
-                    <OrderReview
-                      onPlaceOrder={handlePlaceOrder}
-                      onEdit={handleEditSection}
-                      isPlacingOrder={isPlacingOrder}
-                    />
+                    {isPaymentCompleted ? (
+                      <Card>
+                        <CardHeader className="bg-green-50 border-b border-green-200">
+                          <div className="flex items-center gap-3">
+                            <CheckCircle className="h-6 w-6 text-green-600" />
+                            <div>
+                              <CardTitle className="text-xl text-green-800">Payment Successful!</CardTitle>
+                              <p className="text-sm text-green-600 mt-1">Your payment has been processed successfully</p>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-6">
+                          {/* Order Items */}
+                          <div>
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                              <ShoppingCart className="h-5 w-5 mr-2" />
+                              Order Items ({items.length})
+                            </h3>
+                            <div className="space-y-3">
+                              {items.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div className="flex items-center space-x-3">
+                                    <img
+                                      src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                                      alt={item.name}
+                                      className="h-12 w-12 rounded object-cover"
+                                    />
+                                    <div>
+                                      <h4 className="font-medium">{item.name}</h4>
+                                      <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                                    </div>
+                                  </div>
+                                  <p className="font-medium">{formatPrice(typeof item.price === 'string' ? parseFloat(item.price) : item.price)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* Shipping Address */}
+                          <div>
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                              <MapPin className="h-5 w-5 mr-2" />
+                              Shipping Address
+                            </h3>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <p className="text-sm">{getShippingAddressString()}</p>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* Payment Method */}
+                          <div>
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                              <CreditCard className="h-5 w-5 mr-2" />
+                              Payment Method
+                            </h3>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <p className="font-medium">Razorpay Payment</p>
+                              <p className="text-sm text-gray-600 mt-1">Payment completed successfully</p>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* Order Total */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Subtotal</span>
+                              <span>{formatPrice(totalPrice)}</span>
+                            </div>
+
+                            {paymentCharge > 0 && (
+                              <div className="flex justify-between">
+                                <span>Payment Charge</span>
+                                <span>{formatPrice(paymentCharge)}</span>
+                              </div>
+                            )}
+
+                            {appliedCoupon && discountAmount > 0 && (
+                              <div className="flex justify-between text-green-600">
+                                <span>Discount ({appliedCoupon.code})</span>
+                                <span>-{formatPrice(discountAmount)}</span>
+                              </div>
+                            )}
+
+                            <Separator />
+
+                            <div className="flex justify-between text-lg font-semibold">
+                              <span>Total</span>
+                              <span>{formatPrice(totalPrice + paymentCharge - discountAmount)}</span>
+                            </div>
+                            {appliedCoupon && discountAmount > 0 && (
+                              <div className="text-xs text-green-600 text-right mt-1">
+                                You save {formatPrice(discountAmount)}!
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Final Order Placement Button */}
+                          <div className="pt-4">
+                            <Button
+                              size="lg"
+                              className="w-full"
+                              onClick={async () => {
+                                setIsPlacingOrder(true);
+                                try {
+                                  // Pass true for isRazorpayCompleted since payment is already completed
+                                  const orderResult = await placeOrder(user?.id, true);
+                                  
+                                  if (orderResult.success && orderResult.order) {
+                                    toast({
+                                      title: "Order Created Successfully!",
+                                      description: "Redirecting to order confirmation...",
+                                    });
+                                    
+                                    // Redirect to order confirmation page
+                                    setLocation(`/order-confirmation/${orderResult.order.id}`);
+                                  } else {
+                                    toast({
+                                      title: "Order Creation Failed",
+                                      description: orderResult.error || "Failed to create order. Please contact support.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                } catch (orderError) {
+                                  console.error('Order creation error:', orderError);
+                                  toast({
+                                    title: "Order Creation Error",
+                                    description: "There was an issue creating your order. Please contact support.",
+                                    variant: "destructive",
+                                  });
+                                } finally {
+                                  setIsPlacingOrder(false);
+                                }
+                              }}
+                              disabled={isPlacingOrder}
+                            >
+                              {isPlacingOrder ? "Creating Order..." : "Confirm Order"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <OrderReview
+                        onPlaceOrder={handlePlaceOrder}
+                        onEdit={handleEditSection}
+                        isPlacingOrder={isPlacingOrder}
+                      />
+                    )}
                   </div>
                 )}
               </div>

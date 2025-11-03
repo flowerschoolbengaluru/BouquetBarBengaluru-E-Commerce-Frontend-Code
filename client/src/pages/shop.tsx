@@ -282,6 +282,19 @@ export default function Shop() {
     queryKey: ["/api/products"],
   });
 
+  // Debug: Log product data to verify stock properties
+  useEffect(() => {
+    if (products && products.length > 0) {
+      console.log('Product data sample:', products[0]);
+      console.log('Stock properties check:', {
+        stockquantity: (products[0] as any).stockquantity,
+        stockQuantity: (products[0] as any).stockQuantity,
+        quantity: products[0].quantity,
+        inStock: products[0].inStock
+      });
+    }
+  }, [products]);
+
   // Helper to normalize category field from API (array, JSON string, or comma string)
   const getCategoryString = (categoryField: any): string => {
     if (!categoryField) return 'Uncategorized';
@@ -309,8 +322,32 @@ export default function Shop() {
     return String(categoryField);
   };
 
+  // Helper function to check if product is actually in stock
+  const isProductInStock = (product: Product): boolean => {
+    // Check for stock quantity in all possible property names
+    const stockQty = product.stockquantity ?? product.stockQuantity ?? product.quantity;
+    
+    // If any stock quantity is explicitly set and is 0 or less, product is out of stock
+    if (typeof stockQty === 'number' && stockQty <= 0) {
+      return false;
+    }
+    
+    // If inStock is explicitly set to false, product is out of stock
+    if (typeof product.inStock === 'boolean' && product.inStock === false) {
+      return false;
+    }
+    
+    // If we have a stock quantity > 0, product is in stock
+    if (typeof stockQty === 'number' && stockQty > 0) {
+      return true;
+    }
+    
+    // Default to checking inStock boolean, defaulting to true if not specified
+    return product.inStock ?? true;
+  };
+
   // Filter and sort products based on search, category, price, and stock
-  const filteredProducts = products
+  const filteredProducts = (products as Product[])
     .filter((product: Product) => {
       // For "Best Seller" section (selectedCategory === "all"), only show products marked as best sellers
       // and show all such products regardless of search query
@@ -327,7 +364,7 @@ export default function Shop() {
         const matchesPrice = !isNaN(productPrice) &&
           productPrice >= priceRange[0] &&
           productPrice <= priceRange[1];
-        const matchesStock = !showInStockOnly || product.inStock === true;
+        const matchesStock = !showInStockOnly || isProductInStock(product);
         
         return matchesSearch && matchesPrice && matchesStock;
       }
@@ -357,7 +394,7 @@ export default function Shop() {
       const matchesPrice = !isNaN(productPrice) &&
         productPrice >= priceRange[0] &&
         productPrice <= priceRange[1];
-      const matchesStock = !showInStockOnly || product.inStock === true;
+      const matchesStock = !showInStockOnly || isProductInStock(product);
       
       return matchesSearch && matchesCategory && matchesPrice && matchesStock;
     })
@@ -935,10 +972,15 @@ return (
                         }`}
                     />
                   </button>
-                  {!product.inStock && (
+                  {!isProductInStock(product) && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                       <Badge variant="secondary" className="bg-white text-black text-xs">
-                        Out of Stock
+                        {(() => {
+                          const stockQty = product.stockquantity ?? product.stockQuantity ?? product.quantity;
+                          return (typeof stockQty === 'number' && stockQty <= 0) 
+                            ? 'Out of Stock' 
+                            : 'Currently Unavailable';
+                        })()}
                       </Badge>
                     </div>
                   )}
@@ -990,13 +1032,19 @@ return (
                           e.preventDefault();
                           handleAddToCart(product);
                         }}
-                        disabled={!product.inStock}
+                        disabled={!isProductInStock(product)}
                         className="flex-1 text-xs md:text-sm"
                         data-testid={`button-add-cart-${product.id}`}
                       >
                         {isInCart(product.id) ?
                           `+${getItemQuantity(product.id)}` :
-                          (product.inStock ? 'Add to Cart' : 'Out of Stock')
+                          (isProductInStock(product) ? 'Add to Cart' : 
+                            (() => {
+                              const stockQty = product.stockquantity ?? product.stockQuantity ?? product.quantity;
+                              return (typeof stockQty === 'number' && stockQty <= 0) 
+                                ? 'Out of Stock' 
+                                : 'Unavailable';
+                            })())
                         }
                       </Button>
                     </div>

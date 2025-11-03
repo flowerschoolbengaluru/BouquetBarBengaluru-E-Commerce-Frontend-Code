@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Package, Truck, Clock, Download, Home, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Package, Truck, Clock, Download, Home, ShoppingBag, MapPin, Phone, Mail, Calendar, CreditCard, Tag } from 'lucide-react';
 import { Link } from 'wouter';
 import type { Order } from '@shared/schema';
 
@@ -45,6 +45,17 @@ export default function OrderConfirmation() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   if (isLoading) {
@@ -107,7 +118,156 @@ export default function OrderConfirmation() {
           </CardContent>
         </Card>
 
+        {/* Order Details */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Order Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5" />
+                Order Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.items && Array.isArray(order.items) ? (
+                order.items.map((item: any, index: number) => (
+                  <div key={index} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.productName || 'Product'}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Quantity: {item.quantity} × {formatPrice(item.unitPrice)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{formatPrice(item.totalPrice)}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground">No items found</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Order Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{formatPrice(order.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment Charges</span>
+                <span>{formatPrice(order.paymentCharges || 0)}</span>
+              </div>
+              {order.couponCode && (
+                <div className="flex justify-between text-green-600">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-4 h-4" />
+                    Discount ({order.couponCode})
+                  </span>
+                  <span>-{formatPrice(order.discountAmount || 0)}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between text-lg font-semibold">
+                <span>Total</span>
+                <span>{formatPrice(order.total)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Delivery & Contact Information */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Delivery Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="w-5 h-5" />
+                Delivery Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Delivery Address</h4>
+                <p className="text-sm text-muted-foreground">
+                  {order.deliveryAddress || 'No delivery address specified'}
+                </p>
+              </div>
+              
+              {order.deliveryDate && (
+                <div>
+                  <h4 className="font-medium mb-2">Requested Delivery Date</h4>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    {formatDate(order.deliveryDate)}
+                  </p>
+                </div>
+              )}
+              
+              {order.estimatedDeliveryDate && (
+                <div>
+                  <h4 className="font-medium mb-2">Estimated Delivery</h4>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {formatDate(order.estimatedDeliveryDate)}
+                  </p>
+                </div>
+              )}
+
+              {(order.occasion || order.requirements) && (
+                <div>
+                  <h4 className="font-medium mb-2">Special Instructions</h4>
+                  {order.occasion && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Occasion:</strong> {order.occasion}
+                    </p>
+                  )}
+                  {order.requirements && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Requirements:</strong> {order.requirements}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Contact Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="w-5 h-5" />
+                Contact Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Your Contact Details</h4>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    {order.phone}
+                  </p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    {order.email}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* SMS/WhatsApp Confirmation Notice */}
+        <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-6">
             <div className="flex items-start gap-3">
               <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -122,13 +282,16 @@ export default function OrderConfirmation() {
               </div>
             </div>
           </CardContent>
+        </Card>
 
         {/* Support Note */}
+        <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-muted-foreground">
-              Need help? Contact us at <strong>support@bouquetbar.com</strong> or call <strong>+91 9876543210</strong>
+              Need help? Contact us at <strong>info@flowerschoolbengaluru.com</strong> or call <strong>+91 99728 03847</strong>
             </p>
           </CardContent>
+        </Card>
                {/* Action Buttons */}
         <div className="flex gap-4 justify-center">
           <Link href="/shop">
@@ -140,7 +303,7 @@ export default function OrderConfirmation() {
           <Link href="/my-account">
             <Button data-testid="button-track-order">
               <Package className="w-4 h-4 mr-2" />
-              Track Your Orders
+               Your Orders History
             </Button>
           </Link>
         </div>

@@ -85,11 +85,11 @@ interface CartContextType extends CartState {
   setPaymentMethod: (method: PaymentMethod | null) => void;
   updatePaymentData: (data: Partial<PaymentData>) => void;
   clearPaymentData: () => void;
-  validatePaymentData: () => boolean;
+  validatePaymentData: (isRazorpayCompleted?: boolean) => boolean;
   
   // Order placement
-  placeOrder: (userId?: string) => Promise<{ success: boolean; orderId?: string; error?: string }>;
-  validateOrderData: () => { isValid: boolean; errors: string[] };
+  placeOrder: (userId?: string, isRazorpayCompleted?: boolean) => Promise<{ success: boolean; order?: any; error?: string; message?: string; calculatedPricing?: any }>;
+  validateOrderData: (isRazorpayCompleted?: boolean) => { isValid: boolean; errors: string[] };
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -167,10 +167,10 @@ export function CartProvider({ children, userId }: CartProviderProps) {
       }
     }
     
-    // Calculate final amount: subtotal - discount + delivery + payment charges
+    // Calculate final amount: subtotal - discount + payment charges (no delivery charge)
     // Ensure the discounted subtotal is never negative
     const discountedSubtotal = Math.max(0, totalPrice - recalculatedDiscount);
-    const finalAmount = discountedSubtotal + deliveryCharge + paymentCharge;
+    const finalAmount = discountedSubtotal + paymentCharge; // Remove deliveryCharge
     
     return { 
       totalItems, 
@@ -876,7 +876,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
   // Delivery option methods
   const setDeliveryOption = useCallback((option: DeliveryOption | null) => {
     setCart(prev => {
-      const deliveryCharge = option ? parseFloat(option.price) : 0;
+      const deliveryCharge = 0; // Always 0 - no delivery charges
       const { totalItems, totalPrice, finalAmount } = calculateTotals(
         prev.items, 
         prev.appliedCoupon, 
@@ -922,9 +922,9 @@ export function CartProvider({ children, userId }: CartProviderProps) {
       // Calculate payment charges to match backend logic
       let paymentCharge = 0;
       if (method === 'card' || method === 'upi' || method === 'netbanking') {
-        // Card/Online payments: 2% of (subtotal + delivery - discount) or minimum ₹5
+        // Card/Online payments: 2% of (subtotal - discount) or minimum ₹5 (no delivery charge)
         const subtotal = prev.totalPrice;
-        const baseAmount = subtotal + prev.deliveryCharge - prev.discountAmount;
+        const baseAmount = subtotal - prev.discountAmount;
         paymentCharge = Math.max(baseAmount * 0.02, 5);
       }
       // COD and QR code are free (paymentCharge = 0)
@@ -971,7 +971,12 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     }));
   }, []);
 
-  const validatePaymentData = useCallback((): boolean => {
+  const validatePaymentData = useCallback((isRazorpayCompleted: boolean = false): boolean => {
+    // If Razorpay payment is completed, consider payment as valid
+    if (isRazorpayCompleted) {
+      return true;
+    }
+    
     const { paymentData } = cart;
     
     if (!paymentData.selectedMethod) return false;
@@ -996,7 +1001,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     }
   }, [cart]);
 
-  const validateOrderData = useCallback(() => {
+  const validateOrderData = useCallback((isRazorpayCompleted: boolean = false) => {
     const errors: string[] = [];
     
     if (cart.items.length === 0) {
@@ -1011,7 +1016,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
       errors.push('Delivery option must be selected');
     }
     
-    if (!validatePaymentData()) {
+    if (!validatePaymentData(isRazorpayCompleted)) {
       errors.push('Payment information is incomplete');
     }
     
@@ -1021,8 +1026,8 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     };
   }, [cart, validatePaymentData]);
 
-  const placeOrder = useCallback(async (userId?: string) => {
-    const validation = validateOrderData();
+  const placeOrder = useCallback(async (userId?: string, isRazorpayCompleted: boolean = false) => {
+    const validation = validateOrderData(isRazorpayCompleted);
     if (!validation.isValid) {
       return {
         success: false,
@@ -1088,7 +1093,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         
         // Delivery information
         deliveryOptionId: cart.deliveryOption?.id || '',
-        deliveryCharge: cart.deliveryCharge,
+        deliveryCharge: 0, // Always 0 - no delivery charges
         deliveryDate: undefined, // optional
         
         // Payment information

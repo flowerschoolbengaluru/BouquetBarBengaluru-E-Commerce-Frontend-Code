@@ -14,6 +14,8 @@ export interface Product {
   image?: string;
   category?: string;
   quantity?: number;
+  stockquantity?: number; // Added for backend compatibility
+  stockQuantity?: number; // Added for backend compatibility
   inStock?: boolean;
   featured?: boolean;
   imagefirst?: string;
@@ -88,6 +90,10 @@ export interface Order {
   discountAmount?: number;
   paymentCharges?: number;
   estimatedDeliveryDate?: string;
+  deliveryDate?: string;
+  occasion?: string;
+  requirements?: string;
+  couponCode?: string;
 }
 
 export interface AddressValidation {
