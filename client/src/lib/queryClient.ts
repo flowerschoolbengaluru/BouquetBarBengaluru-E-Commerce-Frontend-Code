@@ -9,7 +9,7 @@ async function throwIfResNotOk(res: Response) {
 
 // Get the API base URL from environment variable
 const getApiUrl = (path: string) => {
-  // const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+//   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const baseUrl = import.meta.env.VITE_API_URL || 'https://flowerschoolbengaluru.com';
 
   // If path starts with /api, use it directly with base URL

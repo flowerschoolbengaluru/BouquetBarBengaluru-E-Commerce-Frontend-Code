@@ -12,6 +12,9 @@ interface Product {
   name: string;
   description: string;
   price: string;
+  originalPrice?: string;
+  discountPercentage?: number;
+  discountAmount?: number;
   category: string;
   subcategory: string;
   image: string;
@@ -24,6 +27,7 @@ interface Product {
   featured: boolean;
   stockquantity: number;
   colour?: string;
+  discounts_offers?: boolean;
   isActive: boolean;
 }
  
@@ -95,6 +99,7 @@ export default function ProductsListing() {
       setSearchQuery(newParams.search || '');
 
       if (categoryChanged) {
+        // Clear all filters when category/subcategory changes
         setFilters({
           priceRange: [0, 10000],
           flowerTypes: [],
@@ -105,6 +110,16 @@ export default function ProductsListing() {
           featured: false,
           bestSeller: false
         });
+      }
+
+      // Also clear category-based filters when using search or switching to non-category filtering
+      if (newParams.search && !urlParams.search) {
+        // When starting a search, clear category filters but keep other filters
+        setFilters(prev => ({
+          ...prev,
+          flowerTypes: [],
+          arrangements: []
+        }));
       }
 
       // Force a refetch when params change
@@ -287,6 +302,18 @@ export default function ProductsListing() {
     // Reset search query
     setSearchQuery('');
    
+    // Clear all filters when switching to a different category
+    setFilters({
+      priceRange: [0, 10000],
+      flowerTypes: [],
+      arrangements: [],
+      occasions: [],
+      colors: [],
+      inStock: false,
+      featured: false,
+      bestSeller: false
+    });
+   
     // Close mobile filter drawer
     setIsFilterOpen(false);
   };
@@ -446,6 +473,13 @@ export default function ProductsListing() {
                 <Checkbox
                   checked={filters.priceRange[0] === range.value[0]}
                   onCheckedChange={() => {
+                    // Clear category/subcategory selections when using price filter
+                    setUrlParams(prev => ({
+                      ...prev,
+                      category: null,
+                      subcategory: null
+                    }));
+                    
                     setFilters(prev => ({
                       ...prev,
                       priceRange: range.value as [number, number]
@@ -559,6 +593,15 @@ export default function ProductsListing() {
                 <Checkbox
                   checked={filters.colors.includes(color.label)}
                   onCheckedChange={(checked) => {
+                    // Clear category/subcategory selections when using color filter
+                    if (checked) {
+                      setUrlParams(prev => ({
+                        ...prev,
+                        category: null,
+                        subcategory: null
+                      }));
+                    }
+                    
                     setFilters(prev => ({
                       ...prev,
                       colors: checked
@@ -594,18 +637,34 @@ export default function ProductsListing() {
             <label className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
               <Checkbox
                 checked={filters.inStock}
-                onCheckedChange={(checked) =>
-                  setFilters(prev => ({ ...prev, inStock: checked as boolean }))
-                }
+                onCheckedChange={(checked) => {
+                  // Clear category/subcategory selections when using In Stock filter
+                  if (checked) {
+                    setUrlParams(prev => ({
+                      ...prev,
+                      category: null,
+                      subcategory: null
+                    }));
+                  }
+                  setFilters(prev => ({ ...prev, inStock: checked as boolean }));
+                }}
               />
               <span className="text-xs text-gray-600">In Stock Only</span>
             </label>
             <label className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
               <Checkbox
                 checked={filters.bestSeller}
-                onCheckedChange={(checked) =>
-                  setFilters(prev => ({ ...prev, bestSeller: checked as boolean }))
-                }
+                onCheckedChange={(checked) => {
+                  // Clear category/subcategory selections when using Best Seller filter
+                  if (checked) {
+                    setUrlParams(prev => ({
+                      ...prev,
+                      category: null,
+                      subcategory: null
+                    }));
+                  }
+                  setFilters(prev => ({ ...prev, bestSeller: checked as boolean }));
+                }}
               />
               <span className="text-xs text-gray-600">Best Seller</span>
             </label>
@@ -750,9 +809,51 @@ export default function ProductsListing() {
  
                     {/* Price and Stock Status */}
                     <div className="flex justify-between items-center mt-1">
-                      <p className="text-sm sm:text-base font-bold text-pink-600">
-                        ₹{parseFloat(product.price).toLocaleString()}
-                      </p>
+                      <div>
+                        {/* Robust pricing block: support multiple field name variants and show fallbacks */}
+                        <div>
+                          {((product as any).originalPrice ?? (product as any).originalprice) && ((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm sm:text-base font-bold text-red-600">
+                                  ₹{Number(product.price).toLocaleString()}
+                                </span>
+                                <span className="text-xs text-gray-500 line-through">
+                                  ₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}
+                                </span>
+                                <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-bold">
+                                  {(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            // Normal display with richer info: try to show originalprice/discount_percentage/discounts_offers variants
+                            <div className="flex items-center gap-2">
+                              {/* Original price (small, struck-through) */}
+                              {(product as any).originalPrice ?? (product as any).originalprice ? (
+                                <span className="text-gray-500 line-through text-sm">₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}</span>
+                              ) : (
+                                <span className="text-gray-400 text-sm">No orig</span>
+                              )}
+
+                              {/* Current / selling price (prominent) */}
+                              <span className="font-sans font-semibold text-base text-gray-900">₹{Number(product.price || 0).toLocaleString()}</span>
+
+                              {/* Discount badge (green) or fallback */}
+                              {((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
+                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF</span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">No %</span>
+                              )}
+
+                              {/* Offers flag fallback */}
+                              {!((product as any).discounts_offers ?? (product as any).discountsOffers) && (
+                                <span className="text-gray-400 text-xs">✗Offers</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       {!product.inStock && (
                         <span className="text-[10px] bg-red-50 text-red-500 px-1 rounded">
                           Out of Stock

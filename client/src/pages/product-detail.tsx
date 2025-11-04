@@ -13,6 +13,9 @@ import type { Product as BaseProduct } from "@shared/schema";
 type ProductWithCustom = BaseProduct & {
   iscustom?: boolean;
   isCustom?: boolean;
+  originalPrice?: string | number;
+  discountPercentage?: number;
+  discountAmount?: string | number;
 };
 import ShopNav from './ShopNav';
 import Footer from '@/components/footer';
@@ -699,9 +702,40 @@ export default function ProductDetail() {
                   </div>
                 </div>
 
-                <p className="text-4xl font-bold text-pink-600 mb-6 transition-all duration-500 hover:scale-105 hover:text-pink-700" data-testid="text-product-price">
-                  ₹{product.price.toLocaleString()}
-                </p>
+                <div className="mb-6">
+                  {/* Pricing block: show original price (if any), prominent current price, discount badge and offers fallback */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      {/* Original price (muted, struck-through) - support both originalPrice and originalprice */}
+                      {(product as any).originalPrice || (product as any).originalprice ? (
+                        <span className="text-lg text-gray-500 line-through">
+                          ₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No orig</span>
+                      )}
+
+                      {/* Current / selling price (prominent) */}
+                      <span className="text-4xl font-bold text-pink-600">
+                        ₹{parseFloat(String(product.price)).toLocaleString()}
+                      </span>
+
+                      {/* Discount badge (support discountPercentage or discount_percentage) */}
+                      {((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
+                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-sm font-semibold">
+                          {(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No %</span>
+                      )}
+
+                      {/* Offers flag fallback */}
+                      {!((product as any).discounts_offers ?? (product as any).discountsOffers ?? (product as any).discountsOffers) && (
+                        <span className="text-gray-400 text-xs">✗Offers</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <Separator className="transition-all duration-500 animate-in fade-in" />
@@ -885,9 +919,29 @@ export default function ProductDetail() {
                             <h3 className="font-medium text-sm text-gray-900 line-clamp-2 min-h-[2.5rem] transition-colors duration-300 group-hover:text-pink-700">
                               {relatedProduct.name}
                             </h3>
-                            <p className="text-sm font-bold text-pink-600 mt-1 transition-all duration-300 group-hover:scale-105 group-hover:text-purple-600">
-                              ₹{relatedProduct.price.toLocaleString()}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {/* Original price (muted, struck-through) - support both originalPrice and originalprice */}
+                              {(relatedProduct as any).originalPrice ?? (relatedProduct as any).originalprice ? (
+                                <span className="text-gray-500 line-through text-sm">₹{parseFloat(String((relatedProduct as any).originalPrice ?? (relatedProduct as any).originalprice)).toLocaleString()}</span>
+                              ) : (
+                                <span className="text-gray-400 text-sm">No orig</span>
+                              )}
+
+                              {/* Current / selling price (prominent) */}
+                              <span className="text-sm font-bold text-pink-600">₹{Number(relatedProduct.price).toLocaleString()}</span>
+
+                              {/* Discount badge (green) or fallback */}
+                              {((relatedProduct as any).discountPercentage ?? (relatedProduct as any).discount_percentage) ? (
+                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{(relatedProduct as any).discountPercentage ?? (relatedProduct as any).discount_percentage}% OFF</span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">No %</span>
+                              )}
+
+                              {/* Offers flag fallback */}
+                              {!((relatedProduct as any).discounts_offers ?? (relatedProduct as any).discountsOffers) && (
+                                <span className="text-gray-400 text-xs">✗Offers</span>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Link>

@@ -2,7 +2,7 @@ import { apiRequest } from './api';
 
 // Get API base URL
 const getApiBaseURL = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  return import.meta.env.VITE_API_URL || 'https://flowerschoolbengaluru.com';
 };
 
 // Razorpay integration utility

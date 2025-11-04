@@ -334,9 +334,6 @@ const CategoryCard: React.FC<{
             >
               <h4 className="text-xs sm:text-sm font-semibold text-gray-800 border-b border-gray-300 pb-2">
                 {group.title}
-                {isFlowerTypes && selectedSubcategories.size > 0 && (
-                  <span className="ml-2 text-pink-600">({selectedSubcategories.size} selected)</span>
-                )}
               </h4>
               <div className="relative">
                 <ul 
@@ -347,14 +344,10 @@ const CategoryCard: React.FC<{
                     return (
                       <li key={index}>
                         <button
-                          className={`block text-xs sm:text-sm transition-all duration-200 p-2 sm:p-3 rounded w-full text-left leading-tight border ${
-                            isSelected
-                              ? 'bg-pink-600 text-white border-pink-700 font-semibold'
-                              : 'text-gray-700 hover:text-pink-600 hover:bg-pink-100 border-transparent hover:border-pink-200'
-                          }`}
+                          className="block text-xs sm:text-sm transition-all duration-200 p-2 sm:p-3 rounded w-full text-left leading-tight border text-gray-700 hover:text-pink-600 hover:bg-pink-100 border-transparent hover:border-pink-200"
                           onClick={() => onItemClick(item, category.id)}
                         >
-                          {isFlowerTypes && isSelected && '✓ '}{item}
+                          {item}
                         </button>
                       </li>
                     );

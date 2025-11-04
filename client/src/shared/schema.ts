@@ -16,8 +16,13 @@ export interface Product {
   quantity?: number;
   stockquantity?: number; // Added for backend compatibility
   stockQuantity?: number; // Added for backend compatibility
+  originalprice: any;
+  discount_percentage?: number;
+  discount_amount?: number;
+  colour?: string;  
   inStock?: boolean;
   featured?: boolean;
+  discounts_offers?: string;
   imagefirst?: string;
   imagesecond?: string;
   imagethirder?: string;

@@ -1013,7 +1013,25 @@ return (
                     })()}
                   </div>
                   <div className="flex items-center justify-between mb-3 md:mb-4">
-                    <span className="text-lg md:text-xl font-bold text-primary">₹{product.price}</span>
+                    <div className="flex items-center gap-3 text-sm md:text-base text-gray-600">
+                      {product.originalprice ? (
+                        <span className="text-gray-500 line-through text-sm">₹{product.originalprice}</span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No orig</span>
+                      )}
+
+                      <span className="font-sans font-semibold text-lg md:text-xl text-gray-900">₹{product.price || 0}</span>
+
+                      {product.discount_percentage ? (
+                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{product.discount_percentage}% OFF</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No %</span>
+                      )}
+
+                      {!product.discounts_offers && (
+                        <span className="text-gray-400 text-xs">✗Offers</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1 flex-1">
