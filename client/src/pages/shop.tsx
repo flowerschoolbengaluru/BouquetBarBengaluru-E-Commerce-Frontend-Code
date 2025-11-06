@@ -23,7 +23,8 @@ import {
   X,
   Plus,
   Minus,
-  Trash2
+  Trash2,
+  Menu
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import Footer from "@/components/footer";
@@ -35,9 +36,7 @@ import { type Product, type User } from "@shared/schema";
 import { useCart } from "@/hooks/cart-context";
 import FlowerCategory from "./FlowerCategory";
 import PostFile from "./PostFileProps";
-
 import PostThree from "./PostThree";
-// import PostFileFour from "./PostFileFour";
 import VideoFile from "./VideoFile";
 import PostFileFive from "./PostFileFive";
 import PostFileSix from "./PostFileSix";
@@ -49,6 +48,8 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState("name");
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [showInStockOnly, setShowInStockOnly] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Add search suggestions state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -66,7 +67,6 @@ export default function Shop() {
   const [typingSpeed, setTypingSpeed] = useState(100);
   const animationRef = useRef<NodeJS.Timeout | null>(null);
 
-
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -79,22 +79,18 @@ export default function Shop() {
     const subcategoryParam = urlParams.get('subcategory');
     const searchParam = urlParams.get('search');
 
-    // Set category from URL (URL decode the parameters)
     if (categoryParam) {
       setSelectedCategory(decodeURIComponent(categoryParam));
     }
     
-    // Set subcategory as category if it exists (from FlowerCategory navigation)
     if (subcategoryParam) {
       setSelectedCategory(decodeURIComponent(subcategoryParam));
     }
 
-    // Set search query from URL
     if (searchParam) {
       setSearchQuery(decodeURIComponent(searchParam));
     }
-  }, [location]); // Re-run when location changes
-
+  }, [location]);
 
   // Handle hash navigation when component loads
   useEffect(() => {
@@ -109,26 +105,21 @@ export default function Shop() {
     }
   }, []);
 
-  // Scroll to section function
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      const headerOffset = 100;
-      const elementPosition = element.offsetTop;
-      const offsetPosition = elementPosition - headerOffset;
+  // Mobile menu toggle
+  const toggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
+  };
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
-    }
+  // Mobile filters toggle
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
   };
 
   // Get all items for search suggestions
   const getAllItems = () => {
     const allItems: Array<{ item: string, category: string, categoryId: string }> = [];
 
-    // Define category mappings
+    // Define category mappings (your existing categories)
     const occasionCategories = [
       "Birthday Flowers", "Anniversary Flowers", "Wedding Flowers", "Valentine's Day Flowers", 
       "Mother's Day Flowers", "Get Well Soon Flowers", "Congratulations Flowers", 
@@ -227,6 +218,7 @@ export default function Shop() {
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: { item: string, category: string, categoryId: string }) => {
     setShowSuggestions(false);
+    setShowMobileMenu(false);
     
     // Navigate to products page with search
     const searchParams = new URLSearchParams();
@@ -238,6 +230,7 @@ export default function Shop() {
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       setShowSuggestions(false);
+      setShowMobileMenu(false);
       
       // Navigate to products page with search
       const searchParams = new URLSearchParams();
@@ -349,16 +342,12 @@ export default function Shop() {
   // Filter and sort products based on search, category, price, and stock
   const filteredProducts = (products as Product[])
     .filter((product: Product) => {
-      // For "Best Seller" section (selectedCategory === "all"), only show products marked as best sellers
-      // and show all such products regardless of search query
       if (selectedCategory === "all") {
         const rawBestSeller = (product as any).isBestSeller ?? (product as any).isbestseller;
         const isBestSeller = typeof rawBestSeller === 'string'
           ? ['true', '1', 'yes', 'enable'].includes(rawBestSeller.toLowerCase())
           : !!rawBestSeller;
         if (!isBestSeller) return false;
-        // In Best Seller section, ignore search query completely so best sellers stay visible while typing
-        const matchesSearch = true;
         
         const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
         const matchesPrice = !isNaN(productPrice) &&
@@ -366,25 +355,20 @@ export default function Shop() {
           productPrice <= priceRange[1];
         const matchesStock = !showInStockOnly || isProductInStock(product);
         
-        return matchesSearch && matchesPrice && matchesStock;
+        return matchesPrice && matchesStock;
       }
       
-      // For other categories, apply normal filtering
       const matchesSearch = !searchQuery || 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
         getCategoryString(product.category).toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Enhanced category matching to handle comma-separated categories
       const matchesCategory = (() => {
         if (!product.category) return false;
         
-        // Get the category string and normalize it
         const categoryString = getCategoryString(product.category).toLowerCase();
         const selectedCategoryLower = selectedCategory.toLowerCase();
         
-        // Check if the selected category matches any of the product's categories
-        // Handle both exact matches and partial matches for comma-separated values
         return categoryString === selectedCategoryLower || 
                categoryString.includes(selectedCategoryLower) ||
                categoryString.split(',').some(cat => cat.trim() === selectedCategoryLower);
@@ -430,6 +414,7 @@ export default function Shop() {
     setSortBy("name");
     setPriceRange([0, 10000]);
     setShowInStockOnly(false);
+    setShowFilters(false);
   };
 
   // Logout mutation
@@ -441,6 +426,7 @@ export default function Shop() {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/user"], null);
+      setShowMobileMenu(false);
       toast({
         title: "Logged out successfully",
         description: "You have been signed out.",
@@ -514,12 +500,6 @@ export default function Shop() {
       }
     };
   }, [animatedText, isDeleting, categoryIndex, searchQuery]);
-
-  const handleInputFocus = () => {
-    if (animationRef.current) {
-      clearTimeout(animationRef.current);
-    }
-  };
 
   const removeFromFavoritesMutation = useMutation({
     mutationFn: async (productId: string) => {
@@ -719,78 +699,183 @@ export default function Shop() {
 
   // Deterministic pseudo-random rating based on product id (stable per product)
   const getRatingForProduct = (id: string): number => {
-    // Simple hash to number
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash) + id.charCodeAt(i);
-      hash |= 0; // Convert to 32bit int
+      hash |= 0;
     }
-    const normalized = Math.abs(hash) % 50; // 0..49
-    // Map to 3.5..5.0 range roughly
+    const normalized = Math.abs(hash) % 50;
     return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
   };
 
-return (
-  <div className="min-h-screen">
-    {/* Top Bar */}
-    <div className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-        {/* Main Navigation */}
-        <div className="flex items-center justify-between py-3 md:py-4">
-          <img
-            src={bouquetBarLogo}
-            alt="Bouquet Bar Logo"
-            className="w-16 md:w-20 h-auto"
-          />
-          <div className="text-lg md:text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
-            Bouquet Bar
+  return (
+    <div className="min-h-screen">
+      {/* Top Bar - Mobile Optimized */}
+      <div className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          {/* Main Navigation */}
+          <div className="flex items-center justify-between py-3 md:py-4">
+            {/* Mobile Menu Button */}
+            <div className="lg:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMobileMenu}
+                className="h-10 w-10"
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Logo */}
+            <div className="flex items-center gap-2 lg:gap-3">
+              <img
+                src={bouquetBarLogo}
+                alt="Bouquet Bar Logo"
+                className="w-12 md:w-16 lg:w-20 h-auto"
+              />
+              <div className="text-lg md:text-xl lg:text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+                Bouquet Bar
+              </div>
+            </div>
+
+            {/* Desktop Search Bar */}
+            <div className="hidden lg:block flex-1 max-w-xl mx-4" ref={searchRef}>
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-4 pr-10 py-2.5 w-full rounded-xl border border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-200 shadow-sm transition-all duration-200 text-base h-11"
+                />
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none w-3/4">
+                  <span className="text-gray-500 font-medium text-sm truncate">
+                    {!searchQuery ? `Searching for ${animatedText}` : ""}
+                    {!searchQuery && <span className="animate-pulse font-bold">|</span>}
+                  </span>
+                </div>
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+
+                {/* Search Suggestions */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                    <div className="p-2">
+                      <div className="space-y-1">
+                        {searchSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between px-3 py-3 hover:bg-pink-50 cursor-pointer rounded-md transition-colors border-b border-gray-50 last:border-b-0"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                          >
+                            <div className="flex flex-col flex-1 min-w-0 space-y-1">
+                              <span className="text-sm font-medium text-gray-900 leading-tight">
+                                {suggestion.item}
+                              </span>
+                              <span className="text-xs text-gray-500 leading-tight">
+                                in {suggestion.category}
+                              </span>
+                            </div>
+                            <Search className="w-4 h-4 text-gray-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Cart Button */}
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-10 w-10 md:h-12 md:w-12 rounded-full"
+                  onClick={() => setShowCartModal(true)}
+                >
+                  <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
+                  {totalItems > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 text-xs font-semibold rounded-full bg-pink-600 text-white">
+                      {totalItems}
+                    </span>
+                  )}
+                </Button>
+              </div>
+
+              {/* Contact Button */}
+              <div className="hidden sm:block">
+                <a href="tel:9972803847">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 md:h-12 md:w-12 rounded-full"
+                  >
+                    <Phone className="w-4 h-4 md:w-5 md:h-5" />
+                  </Button>
+                </a>
+              </div>
+
+              {user ? (
+                <>
+                  {/* Account Button */}
+                  <div className="hidden sm:block">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 md:h-12 md:w-12 rounded-full"
+                      onClick={() => setLocation("/my-account")}
+                    >
+                      <UserIcon className="w-4 h-4 md:w-5 md:h-5" />
+                    </Button>
+                  </div>
+
+                  {/* User greeting and Logout Button */}
+                  <div className="hidden lg:flex items-center gap-4">
+                    <span className="text-sm text-gray-700 font-medium">
+                      Hello, {user.firstname || 'User'}!
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogout}
+                      disabled={logoutMutation.isPending}
+                      className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-pink-700 text-white border-0 transition-all duration-300 text-sm px-4 py-2"
+                    >
+                      {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => setLocation("/signin")}
+                  className="hidden sm:flex bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white transition-all duration-300 text-sm px-3 md:px-4 py-2"
+                >
+                  <UserIcon className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              )}
+            </div>
           </div>
 
-          {/* Search Bar with Suggestions - Responsive */}
-          <div className="flex-1 max-w-md md:max-w-xl mx-2 md:mx-4 lg:mx-6" ref={searchRef}>
+          {/* Mobile Search Bar */}
+          <div className="lg:hidden pb-3" ref={searchRef}>
             <div className="relative">
               <Input
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onKeyDown={handleSearchKeyDown}
-                onFocus={() => {
-                  if (animationRef.current) {
-                    clearTimeout(animationRef.current);
-                  }
-                  if (searchQuery && searchSuggestions.length > 0) {
-                    setShowSuggestions(true);
-                  }
-                }}
-                className="pl-3 md:pl-4 pr-8 md:pr-10 py-2 md:py-2.5 w-full rounded-lg md:rounded-xl border border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-200 shadow-sm transition-all duration-200 font-sans text-xs md:text-sm lg:text-base h-9 md:h-10 lg:h-11"
+                className="pl-4 pr-10 py-3 w-full rounded-lg border border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-200 shadow-sm transition-all duration-200 text-sm h-12"
+                placeholder="Search for flowers, occasions..."
               />
-              <div className="absolute inset-y-0 left-3 md:left-4 flex items-center pointer-events-none w-2/3 md:w-3/4">
-                <span className="text-gray-500 font-medium text-xs md:text-sm truncate">
-                  {!searchQuery ? `Searching for ${animatedText}` : ""}
-                  {!searchQuery && <span className="animate-pulse font-bold">|</span>}
-                </span>
-              </div>
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
 
-              <Search className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-500" />
-
-              {/* Mobile-Optimized Search Suggestions Dropdown */}
+              {/* Mobile Search Suggestions */}
               {showSuggestions && searchSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 
-                  max-h-[50vh] sm:max-h-80 overflow-y-auto 
-                  min-w-[280px] sm:min-w-0
-                  -mx-2 sm:mx-0">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
                   <div className="p-2">
-                    {/* Header */}
-                    <div className="text-xs text-gray-500 ">
-                   
-                      <button
-                        onClick={() => setShowSuggestions(false)}
-                        className="sm:hidden p-1 hover:bg-gray-200 rounded"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    {/* Suggestions List */}
                     <div className="space-y-1">
                       {searchSuggestions.map((suggestion, index) => (
                         <div
@@ -798,251 +883,222 @@ return (
                           className="flex items-center justify-between px-3 py-3 hover:bg-pink-50 cursor-pointer rounded-md transition-colors border-b border-gray-50 last:border-b-0"
                           onClick={() => handleSuggestionClick(suggestion)}
                         >
-                          <div className="flex flex-col flex-1 min-w-0 space-y-1">
-                            <span className="text-sm font-medium text-gray-900 leading-tight">
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <span className="text-sm font-medium text-gray-900 truncate">
                               {suggestion.item}
                             </span>
-                            <span className="text-xs text-gray-500 leading-tight">
+                            <span className="text-xs text-gray-500 truncate">
                               in {suggestion.category}
                             </span>
                           </div>
-                          <div className="flex-shrink-0 ml-3">
-                            <Search className="w-4 h-4 text-gray-400" />
-                          </div>
+                          <Search className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
                         </div>
                       ))}
-                    </div>
-
-                    {/* Footer for mobile */}
-                    <div className="sm:hidden border-t border-gray-100 pt-2 mt-2 text-center">
-                      <button
-                        onClick={() => setShowSuggestions(false)}
-                        className="text-xs text-gray-500 px-4 py-2 hover:bg-gray-50 rounded-md"
-                      >
-                        Close suggestions
-                      </button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1 md:gap-3 relative">
-            {/* Cart Button with Hover Text */}
-            <div className="relative group">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-10 w-10 md:h-12 md:w-12 rounded-full"
-                onClick={() => setShowCartModal(true)}
-                data-testid="button-cart"
-              >
-                <ShoppingCart className="w-5 h-5 md:w-7 md:h-7" />
-                {totalItems > 0 && (
-                  <span className="absolute -right-1 flex items-center justify-center h-4 min-w-[1rem] px-1 text-[10px] font-semibold rounded-full bg-pink-600 text-white">
-                    {totalItems}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            {/* Contact Button with Hover Text */}
-            <div className="relative group">
-              <a href="tel:9972803847">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 md:h-12 md:w-12 rounded-full"
-                  data-testid="button-contact"
-                >
-                  <Phone className="w-4 h-4 md:w-6 md:h-6" />
-                </Button>
-              </a>
-            </div>
-
-            {user ? (
-              <>
-                {/* Account Button */}
-                <div className="relative group">
+        {/* Mobile Menu Overlay */}
+        {showMobileMenu && (
+          <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50">
+            <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-xl">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={bouquetBarLogo}
+                      alt="Bouquet Bar Logo"
+                      className="w-12 h-12"
+                    />
+                    <div className="text-lg font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+                      Bouquet Bar
+                    </div>
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 md:h-12 md:w-12 rounded-full"
-                    onClick={() => setLocation("/my-account")}
-                    data-testid="button-account"
+                    onClick={toggleMobileMenu}
                   >
-                    <UserIcon className="w-4 h-4 md:w-6 md:h-6" />
+                    <X className="w-5 h-5" />
                   </Button>
                 </div>
+              </div>
 
-                {/* User greeting and Logout Button */}
-                <div className="flex items-center gap-2 md:gap-4">
-                  <span className="text-xs md:text-sm text-gray-700 font-medium hidden lg:block">
-                    Hello, {user.firstname || 'User'}!
-                  </span>
+              <div className="p-4 space-y-4">
+                {user ? (
+                  <>
+                    <div className="text-sm text-gray-600">
+                      Welcome, {user.firstname || 'User'}!
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setLocation("/my-account");
+                        setShowMobileMenu(false);
+                      }}
+                    >
+                      <UserIcon className="w-4 h-4 mr-2" />
+                      My Account
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={handleLogout}
+                      disabled={logoutMutation.isPending}
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
+                    </Button>
+                  </>
+                ) : (
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogout}
-                    disabled={logoutMutation.isPending}
-                    data-testid="button-logout"
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-pink-700 text-white border-0 transition-all duration-300 text-xs md:text-sm px-2 md:px-4 py-1 md:py-2"
+                    className="w-full bg-gradient-to-r from-pink-500 to-purple-500"
+                    onClick={() => {
+                      setLocation("/signin");
+                      setShowMobileMenu(false);
+                    }}
                   >
-                    {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
+                    <UserIcon className="w-4 h-4 mr-2" />
+                    Sign In
                   </Button>
+                )}
+
+                <div className="pt-4 border-t border-gray-200">
+                  <a href="tel:9972803847">
+                    <Button variant="ghost" className="w-full justify-start">
+                      <Phone className="w-4 h-4 mr-2" />
+                      Contact: 9972803847
+                    </Button>
+                  </a>
                 </div>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => setLocation("/signin")}
-                data-testid="button-login"
-                className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white transition-all duration-300 text-xs md:text-sm px-2 md:px-4 py-1 md:py-2"
-              >
-                <UserIcon className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-                Login
-              </Button>
-            )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        <FlowerCategory />
       </div>
-      <FlowerCategory />
-    </div>
 
-    <div>
-      <PostFile />
-    </div>
+     
+      <div>
+        <PostFile />
+      </div>
 
-    {/* Products Section */}
-    <section id="products-section" className="py-8 md:py-12">
-      <div className="max-w-7xl mx-auto px-0">
-        <div className="flex items-center justify-between mb-6 md:mb-8 px-0">
-          {/* <h2 className="text-xl md:text-3xl font-bold">
-            {selectedCategory === "all"
-              // ? (searchQuery ? `Search Results for "${searchQuery}"` : "Best Seller")
-              : `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Products`}
-          </h2> */}
-          <h2 className="text-xl md:text-3xl font-bold">{selectedCategory === "all" ? "Best Seller" : `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Products`}</h2>
-        </div>        {productsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 px-0">
-            {/* Show 8 loading cards */}
-            {[...Array(8)].map((_, index) => (
-              <Card key={index} className="overflow-hidden">
-                <div className="w-full h-48 md:h-64 bg-gray-200 animate-pulse"></div>
-                <CardContent className="p-3 md:p-4">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-                  <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Products Section - Mobile Optimized */}
+      <section id="products-section" className="py-6 md:py-12">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between mb-6 md:mb-8">
+            <h2 className="text-xl md:text-3xl font-bold">
+              {selectedCategory === "all" ? "Best Seller" : `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Products`}
+            </h2>
           </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-6 sm:py-8 px-4 sm:px-6">
-            <Gift className="w-12 h-12 md:w-16 md:h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-              {searchQuery || selectedCategory !== "all" ? "No products match your search" : "No products available"}
-            </h3>
-            <p className="text-sm sm:text-base text-gray-600 mb-4">
-              {searchQuery || selectedCategory !== "all" ? "Try adjusting your search or filters" : "Check back later for new products"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 px-0">
-            {/* Show filtered products */}
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden hover-elevate" data-testid={`card-product-${product.id}`}>
-                <div className="relative">
-                  <img
-                    src={`data:image/jpeg;base64,${product.image}`}
-                    alt={product.name}
-                    className="w-full h-[30vh] md:h-[35vh] lg:h-[40vh] object-cover cursor-pointer" 
-                    onClick={() => setLocation(`/product/${product.id}`)}
-                  />
-                  <button
-                    className="absolute top-3 md:top-4 right-3 md:right-4 w-7 h-7 md:w-8 md:h-8 bg-white/90 rounded-full flex items-center justify-center hover-elevate"
-                    onClick={(e) => handleToggleFavorite(product.id, e)}
-                    disabled={addToFavoritesMutation.isPending || removeFromFavoritesMutation.isPending}
-                    data-testid={`button-favorite-${product.id}`}
-                  >
-                    <Heart
-                      className={`w-3 h-3 md:w-4 md:h-4 ${isProductFavorited(product.id)
-                        ? 'fill-pink-500 text-pink-500'
-                        : 'text-gray-600'
-                        }`}
+
+          {productsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {[...Array(8)].map((_, index) => (
+                <Card key={index} className="overflow-hidden">
+                  <div className="w-full h-40 md:h-64 bg-gray-200 animate-pulse"></div>
+                  <CardContent className="p-3 md:p-4">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-8 md:py-12 px-4">
+              <Gift className="w-16 h-16 md:w-20 md:h-20 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
+                {searchQuery || selectedCategory !== "all" ? "No products found" : "No products available"}
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                {searchQuery || selectedCategory !== "all" 
+                  ? "Try adjusting your search or filters to find what you're looking for."
+                  : "Check back later for new arrivals."
+                }
+              </p>
+              {(searchQuery || selectedCategory !== "all") && (
+                <Button onClick={clearFilters} className="bg-gradient-to-r from-pink-500 to-purple-500">
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {filteredProducts.map((product) => (
+                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <div className="relative">
+                    <img
+                      src={`data:image/jpeg;base64,${product.image}`}
+                      alt={product.name}
+                      className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
+                      onClick={() => setLocation(`/product/${product.id}`)}
                     />
-                  </button>
-                  {!isProductInStock(product) && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Badge variant="secondary" className="bg-white text-black text-xs">
-                        {(() => {
-                          const stockQty = product.stockquantity ?? product.stockQuantity ?? product.quantity;
-                          return (typeof stockQty === 'number' && stockQty <= 0) 
-                            ? 'Out of Stock' 
-                            : 'Currently Unavailable';
-                        })()}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-                <CardContent className="p-3 md:p-4">
-                  <h3
-                    className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base"
-                    onClick={() => setLocation(`/product/${product.id}`)}
-                  >
-                    {product.name}
-                  </h3>
-                  {/* Description intentionally hidden in featured section */}
-                  {/* Rating row (categories hidden in featured section) */}
-                  <div className="flex items-center mb-3 md:mb-4">
-                    {(() => {
-                      const rating = getRatingForProduct(product.id);
-                      const fullStars = Math.floor(rating);
-                      const stars = [] as JSX.Element[];
-                      for (let i = 0; i < 5; i++) {
-                        stars.push(
-                          <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                        );
-                      }
-                      return (
-                        <div className="flex items-center gap-1">
-                          <div className="flex">{stars}</div>
-                          <span className="text-xs text-gray-600 ml-1">{rating}/5</span>
-                        </div>
-                      );
-                    })()}
+                   
+                    {!isProductInStock(product) && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <Badge variant="secondary" className="bg-white text-black text-xs">
+                          Out of Stock
+                        </Badge>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between mb-3 md:mb-4">
-                    <div className="flex items-center gap-3 text-sm md:text-base text-gray-600">
-                      {product.originalprice ? (
+                  <CardContent className="p-3 md:p-4">
+                    
+                    {/* Price */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {product.originalprice && (
                         <span className="text-gray-500 line-through text-sm">₹{product.originalprice}</span>
-                      ) : (
-                        <span className="text-gray-400 text-sm">No orig</span>
                       )}
-
-                      <span className="font-sans font-semibold text-lg md:text-xl text-gray-900">₹{product.price || 0}</span>
-
-                      {product.discount_percentage ? (
-                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{product.discount_percentage}% OFF</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No %</span>
-                      )}
-
-                      {!product.discounts_offers && (
-                        <span className="text-gray-400 text-xs">✗Offers</span>
+                      <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
+                      {product.discount_percentage && (
+                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                          {product.discount_percentage}% OFF
+                        </span>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1 flex-1">
+                    <h3
+                      className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base line-clamp-2"
+                      onClick={() => setLocation(`/product/${product.id}`)}
+                    >
+                      {product.name}
+                    </h3>
+                    
+                    {/* Rating */}
+                    <div className="flex items-center mb-2">
+                      {(() => {
+                        const rating = getRatingForProduct(product.id);
+                        const fullStars = Math.floor(rating);
+                        const stars = [] as JSX.Element[];
+                        for (let i = 0; i < 5; i++) {
+                          stars.push(
+                            <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                          );
+                        }
+                        return (
+                          <div className="flex items-center gap-1">
+                            <div className="flex">{stars}</div>
+                            <span className="text-xs text-gray-600 ml-1">{rating}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+
+                    {/* Buttons */}
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 text-xs md:text-sm"
+                        className="flex-1 text-xs"
                         onClick={() => setLocation(`/product/${product.id}`)}
-                        data-testid={`button-view-details-${product.id}`}
                       >
-                        View Details
+                        Details
                       </Button>
                       <Button
                         size="sm"
@@ -1051,156 +1107,159 @@ return (
                           handleAddToCart(product);
                         }}
                         disabled={!isProductInStock(product)}
-                        className="flex-1 text-xs md:text-sm"
-                        data-testid={`button-add-cart-${product.id}`}
+                        className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
                       >
                         {isInCart(product.id) ?
                           `+${getItemQuantity(product.id)}` :
-                          (isProductInStock(product) ? 'Add to Cart' : 
-                            (() => {
-                              const stockQty = product.stockquantity ?? product.stockQuantity ?? product.quantity;
-                              return (typeof stockQty === 'number' && stockQty <= 0) 
-                                ? 'Out of Stock' 
-                                : 'Unavailable';
-                            })())
+                          (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
                         }
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-    {/* Cart Modal - Mobile Optimized */}
-    <Dialog open={showCartModal} onOpenChange={setShowCartModal}>
-      <DialogContent className="max-w-sm sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-white border border-pink-100 mx-4">
-        <DialogHeader className="bg-pink-25 -m-4 sm:-m-6 mb-4 p-4 sm:p-6 border-b border-pink-100">
-          <DialogTitle className="flex items-center gap-2 text-gray-900 text-base sm:text-lg">
-            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-pink-600" />
-            Shopping Cart ({totalItems} {totalItems === 1 ? 'item' : 'items'})
-          </DialogTitle>
-          <DialogDescription className="text-gray-600 text-sm">
-            Review your items and proceed to checkout
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 sm:space-y-4">
-          {items.length === 0 ? (
-            <div className="text-center py-6 sm:py-8">
-              <ShoppingCart className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-pink-300 mb-4" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
-              <p className="text-sm sm:text-base text-gray-500 mb-4">Start shopping to add items to your cart</p>
+      {/* Cart Modal - Mobile Optimized */}
+      <Dialog open={showCartModal} onOpenChange={setShowCartModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white mx-4 p-0">
+          <DialogHeader className="bg-pink-50 p-4 sm:p-6 border-b border-pink-100 sticky top-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-gray-900 text-lg">
+                <ShoppingCart className="h-5 w-5 text-pink-600" />
+                Shopping Cart ({totalItems} {totalItems === 1 ? 'item' : 'items'})
+              </DialogTitle>
               <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowCartModal(false)}
-                className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+                className="h-8 w-8"
               >
-                Continue Shopping
+                <X className="h-4 w-4" />
               </Button>
             </div>
-          ) : (
-            <>
-              {/* Cart Items */}
-              <div className="space-y-2 sm:space-y-3">
-                {items.map((item: any) => (
-                  <div key={item.id} className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-pink-100 rounded-lg bg-white hover:bg-pink-25 transition-colors">
-                    <img
-                      src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
-                      alt={item.name}
-                      className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border border-pink-100"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{item.name}</h4>
-                      <p className="text-xs sm:text-sm text-gray-500 line-clamp-1">{item.description}</p>
-                      <p className="text-base sm:text-lg font-bold text-pink-600">₹{parseFloat(item.price).toLocaleString()}</p>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        disabled={isLoading}
-                        className="border-pink-200 hover:bg-pink-50 h-7 w-7 sm:h-8 sm:w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-6 sm:w-8 text-center font-medium bg-pink-50 py-1 rounded text-xs sm:text-sm">{item.quantity}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        disabled={isLoading}
-                        className="border-pink-200 hover:bg-pink-50 h-7 w-7 sm:h-8 sm:w-8 p-0"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeFromCart(item.id)}
-                        disabled={isLoading}
-                        className="ml-1 sm:ml-2 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50 h-7 w-7 sm:h-8 sm:w-8 p-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <DialogDescription className="text-gray-600 text-sm">
+              Review your items and proceed to checkout
+            </DialogDescription>
+          </DialogHeader>
 
-              <Separator className="border-pink-100" />
-
-              {/* Cart Summary */}
-              <div className="space-y-2 bg-pink-25 p-3 sm:p-4 rounded-lg border border-pink-100">
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
-                  <span>₹{totalPrice.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Delivery</span>
-                  <span className="text-green-600">Free</span>
-                </div>
-                <Separator className="border-pink-100" />
-                <div className="flex justify-between text-base sm:text-lg font-bold">
-                  <span>Total</span>
-                  <span className="text-pink-600">₹{totalPrice.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <DialogFooter className="flex-col gap-2">
+          <div className="p-4 sm:p-6 space-y-4">
+            {items.length === 0 ? (
+              <div className="text-center py-8">
+                <ShoppingCart className="h-16 w-16 mx-auto text-pink-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
+                <p className="text-gray-500 mb-6">Start shopping to add items to your cart</p>
                 <Button
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                  onClick={() => {
-                    setShowCartModal(false);
-                    if (user) {
-                      setLocation('/checkout');
-                    } else {
-                      setLocation('/signin');
-                    }
-                  }}
-                  data-testid="button-checkout"
-                >
-                  Checkout
-                </Button>
-                <Button
-                  variant="outline"
                   onClick={() => setShowCartModal(false)}
-                  className="w-full border-pink-200 text-pink-700 hover:bg-pink-50"
+                  className="bg-gradient-to-r from-pink-500 to-purple-500"
                 >
                   Continue Shopping
                 </Button>
-              </DialogFooter>
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+              </div>
+            ) : (
+              <>
+                {/* Cart Items */}
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {items.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-3 p-3 border border-pink-100 rounded-lg bg-white">
+                      <img
+                        src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                        alt={item.name}
+                        className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border border-pink-100 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 text-sm truncate">{item.name}</h4>
+                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                        <p className="text-base font-bold text-pink-600">₹{parseFloat(item.price).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          disabled={isLoading}
+                          className="h-7 w-7 p-0 border-pink-200 hover:bg-pink-50"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-6 text-center font-medium bg-pink-50 py-1 rounded text-xs">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          disabled={isLoading}
+                          className="h-7 w-7 p-0 border-pink-200 hover:bg-pink-50"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => removeFromCart(item.id)}
+                          disabled={isLoading}
+                          className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 ml-1"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-    {/* Footer */}
-    <Footer />
-  </div>
-);
+                <Separator />
+
+                {/* Cart Summary */}
+                <div className="space-y-2 bg-pink-25 p-4 rounded-lg border border-pink-100">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
+                    <span>₹{totalPrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Delivery</span>
+                    <span className="text-green-600">Extra Delivery Charges</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span className="text-pink-600">₹{totalPrice.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <DialogFooter className="flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCartModal(false)}
+                    className="w-full sm:w-auto border-pink-200 text-pink-700 hover:bg-pink-50"
+                  >
+                    Continue Shopping
+                  </Button>
+                  <Button
+                    className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                    onClick={() => {
+                      setShowCartModal(false);
+                      if (user) {
+                        setLocation('/checkout');
+                      } else {
+                        setLocation('/signin');
+                      }
+                    }}
+                  >
+                    Proceed to Checkout
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Footer */}
+      <Footer />
+    </div>
+  );
 }

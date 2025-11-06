@@ -368,7 +368,6 @@ export default function ShopNav() {
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{item.name}</h4>
-                      <p className="text-xs sm:text-sm text-gray-500 line-clamp-1">{item.description}</p>
                       <p className="text-base sm:text-lg font-bold text-pink-600">₹{parseFloat(item.price).toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2">
@@ -417,7 +416,7 @@ export default function ShopNav() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Delivery</span>
-                  <span className="text-green-600">Free</span>
+                  <span className="text-green-600">Extra Delivery Charges</span>
                 </div>
                 <Separator className="border-pink-100" />
                 <div className="flex justify-between text-base sm:text-lg font-bold">

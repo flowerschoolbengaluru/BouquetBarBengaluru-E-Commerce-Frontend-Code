@@ -619,28 +619,15 @@ const FlowerCategory: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     
-    // Toggle multi-select for flower-types category
+    // Single selection for flower-types category (replace previous selection)
     if (categoryId === "flower-types") {
-      const newSelected = new Set(selectedSubcategories);
-      if (newSelected.has(item)) {
-        newSelected.delete(item);
-      } else {
-        newSelected.add(item);
-      }
-      
+      // Clear previous selections and set only the new one
+      const newSelected = new Set([item]);
       setSelectedSubcategories(newSelected);
       
-      // Build URL with comma-separated subcategories
-      if (newSelected.size > 0) {
-        const subcategoriesParam = Array.from(newSelected).join(',');
-        const url = `/products?category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(subcategoriesParam)}`;
-        // Use history API to update URL and trigger navigation
-        window.history.pushState({}, '', url);
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      } else {
-        // If no selections, show all from that category
-        window.location.href = `/products?category=${encodeURIComponent(categoryId)}`;
-      }
+      // Navigate to the selected subcategory
+      const url = `/products?category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
+      window.location.href = url;
       return;
     }
     

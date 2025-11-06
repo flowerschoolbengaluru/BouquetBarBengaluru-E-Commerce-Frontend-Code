@@ -811,48 +811,17 @@ export default function ProductsListing() {
                     <div className="flex justify-between items-center mt-1">
                       <div>
                         {/* Robust pricing block: support multiple field name variants and show fallbacks */}
-                        <div>
-                          {((product as any).originalPrice ?? (product as any).originalprice) && ((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm sm:text-base font-bold text-red-600">
-                                  ₹{Number(product.price).toLocaleString()}
-                                </span>
-                                <span className="text-xs text-gray-500 line-through">
-                                  ₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}
-                                </span>
-                                <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-bold">
-                                  {(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            // Normal display with richer info: try to show originalprice/discount_percentage/discounts_offers variants
-                            <div className="flex items-center gap-2">
-                              {/* Original price (small, struck-through) */}
-                              {(product as any).originalPrice ?? (product as any).originalprice ? (
-                                <span className="text-gray-500 line-through text-sm">₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}</span>
-                              ) : (
-                                <span className="text-gray-400 text-sm">No orig</span>
-                              )}
-
-                              {/* Current / selling price (prominent) */}
-                              <span className="font-sans font-semibold text-base text-gray-900">₹{Number(product.price || 0).toLocaleString()}</span>
-
-                              {/* Discount badge (green) or fallback */}
-                              {((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
-                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF</span>
-                              ) : (
-                                <span className="text-gray-400 text-xs">No %</span>
-                              )}
-
-                              {/* Offers flag fallback */}
-                              {!((product as any).discounts_offers ?? (product as any).discountsOffers) && (
-                                <span className="text-gray-400 text-xs">✗Offers</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                         <div className="flex items-center gap-2 mb-3">
+                      {product.originalPrice && (
+                        <span className="text-gray-500 line-through text-sm">₹{product.originalPrice}</span>
+                      )}
+                      <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
+                      {product.discountPercentage && (
+                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                          {product.discountPercentage}% OFF
+                        </span>
+                      )}
+                    </div>
                       </div>
                       {!product.inStock && (
                         <span className="text-[10px] bg-red-50 text-red-500 px-1 rounded">

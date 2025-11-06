@@ -6,14 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, User, Mail, Phone, Lock, ChevronDown } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Lock, ChevronDown, AlertCircle, CheckCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757484444893.png";
-
-// Add field error state
-import React from "react";
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -25,6 +22,8 @@ export default function SignUp() {
     confirmPassword: ""
   });
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -40,54 +39,132 @@ export default function SignUp() {
     },
     onSuccess: async (response) => {
       setFieldErrors({});
+      setShowErrorAlert(false);
       const data = await response.json();
       login(data.user);
+      
+      // Show success toast
+      toast({
+        title: "🎉 Welcome to Bouquet Bar!",
+        description: `Account created successfully for ${data.user.firstname}!`,
+        duration: 3000,
+      });
     },
     onError: async (error: any) => {
-      let errorMsg = "Failed to create account";
+      let errorMsg = "Failed to create account. Please try again.";
       setFieldErrors({});
+      
       if (error?.response) {
         try {
           const data = await error.response.json();
+          
+          // Handle different error types
           if (data.errors) {
             setFieldErrors(data.errors);
-            errorMsg = Object.values(data.errors).join(", ");
+            // Show the first field error in alert
+            const firstError = Object.values(data.errors)[0] as string;
+            setErrorMessage(firstError || errorMsg);
+            setShowErrorAlert(true);
           } else if (data.message) {
             errorMsg = data.message;
+            setErrorMessage(errorMsg);
+            setShowErrorAlert(true);
+          } else if (data.error) {
+            errorMsg = data.error;
+            setErrorMessage(errorMsg);
+            setShowErrorAlert(true);
           }
         } catch {
           errorMsg = error.message || errorMsg;
+          setErrorMessage(errorMsg);
+          setShowErrorAlert(true);
         }
       } else if (error.message) {
         errorMsg = error.message;
+        setErrorMessage(errorMsg);
+        setShowErrorAlert(true);
       }
+
+      // Also show toast for immediate feedback
       toast({
-        title: "Error",
+        title: "Account Creation Failed",
         description: errorMsg,
         variant: "destructive",
+        duration: 5000,
       });
     },
   });
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    
+    // First Name validation
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required";
+    } else if (formData.firstName.trim().length < 2) {
+      newErrors.firstName = "First name must be at least 2 characters";
+    }
+
+    // Last Name validation
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required";
+    } else if (formData.lastName.trim().length < 2) {
+      newErrors.lastName = "Last name must be at least 2 characters";
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    // Phone validation
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
+      newErrors.phone = "Please enter a valid 10-digit phone number";
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters long";
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = "Password should include uppercase, lowercase letters and numbers";
+    }
+
+    // Confirm Password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    return newErrors;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     setFieldErrors({});
-    if (formData.password !== formData.confirmPassword) {
-      setFieldErrors(prev => ({ ...prev, confirmPassword: "Passwords do not match" }));
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
+    setShowErrorAlert(false);
 
-    if (formData.password.length < 6) {
-      setFieldErrors(prev => ({ ...prev, password: "Password must be at least 6 characters long" }));
+    // Validate form
+    const validationErrors = validateForm();
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      
+      // Show the first validation error in alert
+      const firstError = Object.values(validationErrors)[0];
+      setErrorMessage(firstError);
+      setShowErrorAlert(true);
+      
       toast({
-        title: "Error", 
-        description: "Password must be at least 6 characters long",
+        title: "Validation Error",
+        description: firstError,
         variant: "destructive",
       });
       return;
@@ -103,14 +180,29 @@ export default function SignUp() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: "" }));
+    }
+    
+    // Clear general error alert when user modifies any field
+    if (showErrorAlert) {
+      setShowErrorAlert(false);
+    }
+  };
+
+  const closeErrorAlert = () => {
+    setShowErrorAlert(false);
   };
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-pink-100">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-pink-100">
       <div className="flex min-h-screen">
         {/* Left Side - Branding */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-pink-200/80 via-rose-200/60 to-pink-300/80 relative overflow-hidden">
@@ -158,14 +250,6 @@ export default function SignUp() {
               <h2 className="text-2xl font-bold text-gray-900">Join Bouquet Bar</h2>
             </div>
 
-            {/* Back Button */}
-            {/* <Link href="/shop">
-              <Button variant="ghost" className="mb-6 text-gray-600 hover:text-gray-900" data-testid="button-back">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-            </Link> */}
-
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader className="text-center pb-4">
                 <CardTitle className="text-2xl font-bold text-gray-900">Create Account</CardTitle>
@@ -175,6 +259,25 @@ export default function SignUp() {
               </CardHeader>
               
               <CardContent className="space-y-6">
+                {/* Error Alert */}
+                {showErrorAlert && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in duration-300">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-red-800 font-medium">Account creation failed</p>
+                      <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={closeErrorAlert}
+                      className="h-6 w-6 text-red-600 hover:bg-red-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -186,16 +289,21 @@ export default function SignUp() {
                           name="firstName"
                           type="text"
                           required
-                          className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                          className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                            fieldErrors.firstName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                          }`}
                           placeholder="First name"
                           value={formData.firstName}
                           onChange={handleInputChange}
                           data-testid="input-first-name"
                         />
-                        {fieldErrors.firstName && (
-                          <span className="text-xs text-red-500">{fieldErrors.firstName}</span>
-                        )}
                       </div>
+                      {fieldErrors.firstName && (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {fieldErrors.firstName}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName" className="text-gray-700 font-medium">Last Name</Label>
@@ -206,16 +314,21 @@ export default function SignUp() {
                           name="lastName"
                           type="text"
                           required
-                          className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                          className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                            fieldErrors.lastName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                          }`}
                           placeholder="Last name"
                           value={formData.lastName}
                           onChange={handleInputChange}
                           data-testid="input-last-name"
                         />
-                        {fieldErrors.lastName && (
-                          <span className="text-xs text-red-500">{fieldErrors.lastName}</span>
-                        )}
                       </div>
+                      {fieldErrors.lastName && (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {fieldErrors.lastName}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -228,23 +341,30 @@ export default function SignUp() {
                         name="email"
                         type="email"
                         required
-                        className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                          fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                        }`}
                         placeholder="your.email@example.com"
                         value={formData.email}
                         onChange={handleInputChange}
                         data-testid="input-email"
                       />
-                      {fieldErrors.email && (
-                        <span className="text-xs text-red-500">{fieldErrors.email}</span>
-                      )}
                     </div>
+                    {fieldErrors.email && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="text-gray-700 font-medium">Phone Number</Label>
                     <div className="flex gap-2">
                       <Select value={countryCode} onValueChange={setCountryCode}>
-                        <SelectTrigger className="w-[100px] border-gray-200 focus:border-primary">
+                        <SelectTrigger className={`w-[100px] border-gray-200 focus:border-primary ${
+                          fieldErrors.phone ? 'border-red-500 focus:border-red-500' : ''
+                        }`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -263,17 +383,22 @@ export default function SignUp() {
                           name="phone"
                           type="tel"
                           required
-                          className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                          className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                            fieldErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                          }`}
                           placeholder="00000 00000"
                           value={formData.phone}
                           onChange={handleInputChange}
                           data-testid="input-phone"
                         />
-                        {fieldErrors.phone && (
-                          <span className="text-xs text-red-500">{fieldErrors.phone}</span>
-                        )}
                       </div>
                     </div>
+                    {fieldErrors.phone && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {fieldErrors.phone}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -285,16 +410,24 @@ export default function SignUp() {
                         name="password"
                         type="password"
                         required
-                        className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                          fieldErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                        }`}
                         placeholder="Create a strong password"
                         value={formData.password}
                         onChange={handleInputChange}
                         data-testid="input-password"
                       />
-                      {fieldErrors.password && (
-                        <span className="text-xs text-red-500">{fieldErrors.password}</span>
-                      )}
                     </div>
+                    {fieldErrors.password && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {fieldErrors.password}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Must be at least 6 characters with uppercase, lowercase letters and numbers
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -306,28 +439,39 @@ export default function SignUp() {
                         name="confirmPassword"
                         type="password"
                         required
-                        className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                          fieldErrors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                        }`}
                         placeholder="Confirm your password"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
                         data-testid="input-confirm-password"
                       />
-                      {fieldErrors.confirmPassword && (
-                        <span className="text-xs text-red-500">{fieldErrors.confirmPassword}</span>
-                      )}
                     </div>
+                    {fieldErrors.confirmPassword && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {fieldErrors.confirmPassword}
+                      </p>
+                    )}
                   </div>
 
                   <Button 
                     type="submit" 
-                    className="w-full text-lg py-3 h-auto font-semibold"
+                    className="w-full text-lg py-3 h-auto font-semibold bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
                     disabled={signupMutation.isPending}
                     data-testid="button-signup"
                   >
-                    {signupMutation.isPending ? "Creating Account..." : "Create Account"}
+                    {signupMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Creating Account...
+                      </>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
                 </form>
-
 
                 <div className="text-center pt-4 border-t border-gray-100">
                   <p className="text-gray-600">

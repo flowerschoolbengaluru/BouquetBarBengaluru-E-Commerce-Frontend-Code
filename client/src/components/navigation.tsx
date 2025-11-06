@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Menu, X, User, UserPlus, LogOut, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
+import { Menu, X, User, UserPlus, LogOut, ShoppingCart, Plus, Minus, Trash2, Phone } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,7 @@ export default function Navigation() {
     retry: false,
   });
 
-  // Cart functionality - now using context, no arguments needed
+  // Cart functionality
   const { 
     totalItems, 
     totalPrice,
@@ -45,9 +45,7 @@ export default function Navigation() {
       });
     },
     onSuccess: () => {
-      // Clear user data from cache
       queryClient.setQueryData(["/api/auth/user"], null);
-      // Invalidate all cart-related queries to clear cart state
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth"] });
       toast({
@@ -72,15 +70,12 @@ export default function Navigation() {
     const handleScroll = () => {
       const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
       
-      // Show nav when at top of page
       if (currentScrollTop <= 50) {
         setIsScrollingUp(false);
       }
-      // Hide nav when scrolling up (but not at the very top)
       else if (currentScrollTop < lastScrollTop && currentScrollTop > 50) {
         setIsScrollingUp(true);
       }
-      // Show nav when scrolling down
       else if (currentScrollTop > lastScrollTop) {
         setIsScrollingUp(false);
       }
@@ -101,70 +96,90 @@ export default function Navigation() {
   };
 
   return (
-    <nav className={`fixed top-0 w-full bg-card/95 backdrop-blur-sm z-50 transition-transform duration-300 ${isScrollingUp ? '-translate-y-full' : 'translate-y-0'}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className={`fixed top-0 w-full bg-white/95 backdrop-blur-sm z-50 transition-transform duration-300 border-b border-gray-200 ${isScrollingUp ? '-translate-y-full' : 'translate-y-0'}`}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
         <div className="flex justify-between items-center py-3">
-          <div className="flex items-center space-x-3">
-            <img src={logoPath} alt="Bouquet Bar Logo" className="h-12 w-auto" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">Bouquet Bar</span>
+          {/* Logo and Brand */}
+          <div className="flex items-center space-x-2">
+            <img src={logoPath} alt="Bouquet Bar Logo" className="h-10 w-auto" />
+            <span className="text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+              Bouquet Bar
+            </span>
           </div>
           
-          
-          <div className="hidden md:flex space-x-8">
+          {/* Desktop Navigation - Hidden on mobile */}
+          <div className="hidden md:flex space-x-6">
             <button 
               onClick={() => scrollToSection('home')}
-              className="text-muted-foreground hover:text-primary transition-colors"
-              data-testid="nav-home"
+              className="text-gray-600 hover:text-pink-600 transition-colors text-sm font-medium"
             >
               Home
             </button>
             <button 
               onClick={() => scrollToSection('shop')}
-              className="text-muted-foreground hover:text-primary transition-colors"
-              data-testid="nav-shop"
+              className="text-gray-600 hover:text-pink-600 transition-colors text-sm font-medium"
             >
               Shop
             </button>
             <button 
               onClick={() => scrollToSection('school')}
-              className="text-muted-foreground hover:text-primary transition-colors"
-              data-testid="nav-school"
+              className="text-gray-600 hover:text-pink-600 transition-colors text-sm font-medium"
             >
               School
             </button>
             <button 
               onClick={() => scrollToSection('gallery')}
-              className="text-muted-foreground hover:text-primary transition-colors"
-              data-testid="nav-gallery"
+              className="text-gray-600 hover:text-pink-600 transition-colors text-sm font-medium"
             >
               Gallery
             </button>
-           
             <button 
               onClick={() => scrollToSection('contact')}
-              className="text-muted-foreground hover:text-primary transition-colors"
-              data-testid="nav-contact"
+              className="text-gray-600 hover:text-pink-600 transition-colors text-sm font-medium"
             >
               Contact
             </button>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-3 shrink-0">
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
+            {/* Cart Button - Always Visible */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-10 w-10"
+              onClick={() => setShowCartModal(true)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 text-xs font-semibold rounded-full bg-pink-600 text-white">
+                  {totalItems}
+                </span>
+              )}
+            </Button>
+
+            {/* Contact Button - Hidden on mobile */}
+            <div className="hidden sm:block">
+              <a href="tel:9972803847">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10"
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+              </a>
+            </div>
+
+            {/* User Actions - Hidden on mobile */}
+            <div className="hidden md:flex items-center space-x-2">
               {user ? (
-                <div className="flex items-center gap-3">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Welcome,</span>
-                    <span className="font-semibold text-primary ml-1">
-                      {user?.firstname || 'User'}!
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
                   <Button 
                     variant="ghost" 
                     size="sm"
                     onClick={() => setLocation('/shop')}
-                    data-testid="button-account"
-                    className="text-pink-600 border border-pink-300 rounded-full px-4 py-1 text-sm hover:bg-pink-50"
+                    className="text-pink-600 border border-pink-300 rounded-full px-3 py-1 text-xs hover:bg-pink-50"
                   >
                     Account
                   </Button>
@@ -172,40 +187,28 @@ export default function Navigation() {
                     size="sm"
                     onClick={handleLogout}
                     disabled={logoutMutation.isPending}
-                    data-testid="button-logout"
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-full px-4 py-1 text-sm hover:from-pink-600 hover:to-purple-700"
+                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-full px-3 py-1 text-xs hover:from-pink-600 hover:to-purple-700"
                   >
-                    {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
+                    {logoutMutation.isPending ? '...' : 'Logout'}
                   </Button>
                 </div>
               ) : (
-                <>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => scrollToSection('contact')}
-                    data-testid="button-contact"
-                    className="text-pink-600 border border-pink-300 rounded-full px-4 py-1 text-sm hover:bg-pink-50"
-                  >
-                    Contact
-                  </Button>
-                  <Button 
-                    size="sm"
-                    onClick={() => setLocation('/signin')}
-                    data-testid="button-login"
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-full px-4 py-1 text-sm hover:from-pink-600 hover:to-purple-700"
-                  >
-                    Login
-                  </Button>
-                </>
+                <Button 
+                  size="sm"
+                  onClick={() => setLocation('/signin')}
+                  className="bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-full px-3 py-1 text-xs hover:from-pink-600 hover:to-purple-700"
+                >
+                  Login
+                </Button>
               )}
             </div>
+
+            {/* Mobile Menu Button */}
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden h-10 w-10"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              data-testid="button-mobile-menu"
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -214,71 +217,73 @@ export default function Navigation() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4">
+          <div className="md:hidden py-4 border-t border-gray-200">
             <div className="flex flex-col space-y-4">
               <button 
                 onClick={() => scrollToSection('home')}
-                className="text-left text-muted-foreground hover:text-primary transition-colors"
-                data-testid="nav-mobile-home"
+                className="text-left text-gray-600 hover:text-pink-600 transition-colors py-2 font-medium"
               >
                 Home
               </button>
               <button 
                 onClick={() => scrollToSection('shop')}
-                className="text-left text-muted-foreground hover:text-primary transition-colors"
-                data-testid="nav-mobile-shop"
+                className="text-left text-gray-600 hover:text-pink-600 transition-colors py-2 font-medium"
               >
                 Shop
               </button>
               <button 
                 onClick={() => scrollToSection('school')}
-                className="text-left text-muted-foreground hover:text-primary transition-colors"
-                data-testid="nav-mobile-school"
+                className="text-left text-gray-600 hover:text-pink-600 transition-colors py-2 font-medium"
               >
                 School
               </button>
               <button 
                 onClick={() => scrollToSection('gallery')}
-                className="text-left text-muted-foreground hover:text-primary transition-colors"
-                data-testid="nav-mobile-gallery"
+                className="text-left text-gray-600 hover:text-pink-600 transition-colors py-2 font-medium"
               >
                 Gallery
               </button>
-             
               <button 
                 onClick={() => scrollToSection('contact')}
-                className="text-left text-muted-foreground hover:text-primary transition-colors"
-                data-testid="nav-mobile-contact"
+                className="text-left text-gray-600 hover:text-pink-600 transition-colors py-2 font-medium"
               >
                 Contact
               </button>
               
+              {/* Mobile Contact */}
+              <div className="border-t border-gray-200 pt-4">
+                <a href="tel:9972803847" className="block">
+                  <Button variant="ghost" className="w-full justify-start text-gray-600">
+                    <Phone className="h-4 w-4 mr-2" />
+                    Call: 9972803847
+                  </Button>
+                </a>
+              </div>
+
               {/* Mobile Auth Section */}
-              <div className="border-t border-border pt-4 mt-4 space-y-3">
+              <div className="border-t border-gray-200 pt-4 space-y-3">
                 {user ? (
-                  <div className="text-center">
-                    <div className="text-sm mb-3">
-                      <span className="text-muted-foreground">Welcome,</span>
-                      <span className="font-semibold text-primary ml-1">
-                        {user?.firstname || 'User'}!
-                      </span>
+                  <div className="space-y-3">
+                    <div className="text-sm text-gray-600 px-2">
+                      Welcome, <span className="font-semibold text-pink-600">{user?.firstname || 'User'}!</span>
                     </div>
                     <div className="space-y-2">
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start" 
-                        onClick={() => setLocation('/shop')}
-                        data-testid="button-mobile-account"
+                        onClick={() => {
+                          setLocation('/shop');
+                          setIsMobileMenuOpen(false);
+                        }}
                       >
                         <User className="w-4 h-4 mr-2" />
-                        Account
+                        My Account
                       </Button>
                       <Button 
                         variant="outline" 
-                        className="w-full justify-start" 
+                        className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50" 
                         onClick={handleLogout}
                         disabled={logoutMutation.isPending}
-                        data-testid="button-mobile-logout"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
                         {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
@@ -286,56 +291,68 @@ export default function Navigation() {
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-2">
                     <Button 
-                      variant="ghost" 
-                      className="w-full justify-start" 
-                      onClick={() => setLocation('/signin')}
-                      data-testid="button-mobile-signin"
+                      className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                      onClick={() => {
+                        setLocation('/signin');
+                        setIsMobileMenuOpen(false);
+                      }}
                     >
                       <User className="w-4 h-4 mr-2" />
                       Sign In
                     </Button>
                     <Button 
-                      className="w-full" 
-                      onClick={() => setLocation('/signup')}
-                      data-testid="button-mobile-signup"
+                      variant="outline"
+                      className="w-full border-pink-300 text-pink-600 hover:bg-pink-50"
+                      onClick={() => {
+                        setLocation('/signup');
+                        setIsMobileMenuOpen(false);
+                      }}
                     >
                       <UserPlus className="w-4 h-4 mr-2" />
-                      Sign Up
+                      Create Account
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
-              
             </div>
           </div>
         )}
-        
       </div>
 
-     {/* Cart Modal - Updated styling */}
+      {/* Mobile-Optimized Cart Modal */}
       <Dialog open={showCartModal} onOpenChange={setShowCartModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white border border-pink-100">
-          <DialogHeader className="bg-pink-25 -m-6 mb-4 p-6 border-b border-pink-100">
-            <DialogTitle className="flex items-center gap-2 text-gray-900">
-              <ShoppingCart className="h-5 w-5 text-pink-600" />
-              Shopping Cart ({totalItems} {totalItems === 1 ? 'item' : 'items'})
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
+        <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto bg-white mx-4 p-0">
+          <DialogHeader className="bg-pink-50 p-4 border-b border-pink-100 sticky top-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-gray-900 text-lg">
+                <ShoppingCart className="h-5 w-5 text-pink-600" />
+                Cart ({totalItems} {totalItems === 1 ? 'item' : 'items'})
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowCartModal(false)}
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <DialogDescription className="text-gray-600 text-sm">
               Review your items and proceed to checkout
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="p-4 space-y-4">
             {items.length === 0 ? (
               <div className="text-center py-8">
                 <ShoppingCart className="h-16 w-16 mx-auto text-pink-300 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
-                <p className="text-gray-500 mb-4">Start shopping to add items to your cart</p>
-                <Button 
+                <p className="text-gray-500 mb-6">Start shopping to add items to your cart</p>
+                <Button
                   onClick={() => setShowCartModal(false)}
-                  className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+                  className="bg-gradient-to-r from-pink-500 to-purple-500 w-full"
                 >
                   Continue Shopping
                 </Button>
@@ -343,36 +360,38 @@ export default function Navigation() {
             ) : (
               <>
                 {/* Cart Items */}
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
                   {items.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 border border-pink-100 rounded-lg bg-white hover:bg-pink-25 transition-colors">
+                    <div key={item.id} className="flex items-center gap-3 p-3 border border-pink-100 rounded-lg bg-white">
                       <img
                         src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
                         alt={item.name}
-                        className="w-16 h-16 object-cover rounded border border-pink-100"
+                        className="w-12 h-12 object-cover rounded border border-pink-100 flex-shrink-0"
                       />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{item.name}</h4>
-                        <p className="text-sm text-gray-500 line-clamp-1">{item.description}</p>
-                        <p className="text-lg font-bold text-pink-600">₹{parseFloat(item.price).toLocaleString()}</p>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 text-sm truncate">{item.name}</h4>
+                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                        <p className="text-base font-bold text-pink-600">₹{parseFloat(item.price).toLocaleString()}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           disabled={isLoading}
-                          className="border-pink-200 hover:bg-pink-50"
+                          className="h-7 w-7 p-0 border-pink-200 hover:bg-pink-50"
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <span className="w-8 text-center font-medium bg-pink-50 py-1 rounded">{item.quantity}</span>
+                        <span className="w-6 text-center font-medium bg-pink-50 py-1 rounded text-xs">
+                          {item.quantity}
+                        </span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           disabled={isLoading}
-                          className="border-pink-200 hover:bg-pink-50"
+                          className="h-7 w-7 p-0 border-pink-200 hover:bg-pink-50"
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -381,7 +400,7 @@ export default function Navigation() {
                           variant="outline"
                           onClick={() => removeFromCart(item.id)}
                           disabled={isLoading}
-                          className="ml-2 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                          className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 ml-1"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -390,7 +409,7 @@ export default function Navigation() {
                   ))}
                 </div>
 
-                <Separator className="border-pink-100" />
+                <Separator />
 
                 {/* Cart Summary */}
                 <div className="space-y-2 bg-pink-25 p-4 rounded-lg border border-pink-100">
@@ -402,7 +421,7 @@ export default function Navigation() {
                     <span>Delivery</span>
                     <span className="text-green-600">Free</span>
                   </div>
-                  <Separator className="border-pink-100" />
+                  <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
                     <span className="text-pink-600">₹{totalPrice.toLocaleString()}</span>
@@ -410,22 +429,18 @@ export default function Navigation() {
                 </div>
 
                 <DialogFooter className="flex-col gap-2">
-                  {/* Always show Checkout button - behavior changes based on login status */}
                   <Button 
                     className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
                     onClick={() => {
                       setShowCartModal(false);
                       if (user) {
-                        // User is logged in - go to checkout
                         setLocation('/checkout');
                       } else {
-                        // User is not logged in - go to signin
                         setLocation('/signin');
                       }
                     }}
-                    data-testid="button-checkout"
                   >
-                    Checkout
+                    Proceed to Checkout
                   </Button>
                   <Button 
                     variant="outline" 

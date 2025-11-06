@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Mail, Lock, ShoppingBag, GraduationCap, Star } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757484444893.png";
@@ -16,7 +15,11 @@ export default function SignIn() {
     email: "",
     password: ""
   });
-  const { toast } = useToast();
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    general: ""
+  });
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -32,7 +35,7 @@ export default function SignIn() {
     onSuccess: async (response) => {
       const data = await response.json();
       // Save user data in localStorage, cookies and context
-      login(data.user); // This saves to cookies and sessionStorage
+      login(data.user);
 
       // Additionally save to localStorage for persistence
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -45,43 +48,119 @@ export default function SignIn() {
       queryClient.setQueryData(["/api/auth/user"], data.user);
       // Invalidate auth queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/auth"] });
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
-      });
-      setLocation("/shop"); // Redirect to home
+      
+      setLocation("/shop");
     },
     onError: async (error: any) => {
-      let errorMessage = "Failed to sign in";
+      // Clear previous errors
+      setErrors({
+        email: "",
+        password: "",
+        general: ""
+      });
+
       if (error?.response) {
         try {
+          const status = error.response.status;
           const text = await error.response.text();
-          errorMessage = text || error.message;
+          
+          console.log('Sign-in error:', { status, text }); // For debugging
+          
+          // Handle 401 Unauthorized - Invalid credentials
+          if (status === 401) {
+            // Show generic error message for security - don't reveal if email exists or not
+            setErrors({
+              email: "",
+              password: "",
+              general: "Invalid email or password. Please check your credentials and try again."
+            });
+            return;
+          }
+          
+          // Handle 400 Bad Request
+          if (status === 400) {
+            setErrors({
+              email: "",
+              password: "Invalid password format.",
+              general: ""
+            });
+            return;
+          }
+
+          // For other server errors
+          setErrors({
+            email: "",
+            password: "",
+            general: "Server error. Please try again later."
+          });
+          
         } catch (e) {
-          errorMessage = error.message || errorMessage;
+          // If we can't read the response
+          setErrors({
+            email: "",
+            password: "",
+            general: "Connection error. Please try again."
+          });
         }
-        // Log error response for debugging
-        console.error('Sign-in error response:', error.response);
       } else if (error?.message) {
-        errorMessage = error.message;
+        // Network errors (no response from server)
+        if (error.message.includes("Network") || error.message.includes("fetch")) {
+          setErrors({
+            email: "",
+            password: "",
+            general: "Network error. Please check your internet connection."
+          });
+        } else {
+          setErrors({
+            email: "",
+            password: "",
+            general: error.message
+          });
+        }
+      } else {
+        // Unknown error
+        setErrors({
+          email: "",
+          password: "",
+          general: "An unexpected error occurred. Please try again."
+        });
       }
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
+    // Clear previous errors
+    setErrors({
+      email: "",
+      password: "",
+      general: ""
+    });
+
+    // Validate form
+    let hasError = false;
+    const newErrors = {
+      email: "",
+      password: "",
+      general: ""
+    };
+
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+      hasError = true;
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+      hasError = true;
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+      hasError = true;
+    }
+
+    if (hasError) {
+      setErrors(newErrors);
       return;
     }
 
@@ -92,10 +171,20 @@ export default function SignIn() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors({
+        ...errors,
+        [name]: "",
+        general: ""
+      });
+    }
   };
 
   return (
@@ -157,14 +246,6 @@ export default function SignIn() {
               <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
             </div>
 
-            {/* Back Button */}
-            {/* <Link href="/shop">
-              <Button variant="ghost" className="mb-6 text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-            </Link> */}
-
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader className="text-center pb-4">
                 <CardTitle className="text-2xl font-bold text-gray-900">Sign In</CardTitle>
@@ -174,6 +255,13 @@ export default function SignIn() {
               </CardHeader>
               
               <CardContent className="space-y-6">
+                {/* General Error Message */}
+                {errors.general && (
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    {errors.general}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
@@ -184,13 +272,21 @@ export default function SignIn() {
                         name="email"
                         type="email"
                         required
-                        className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                          errors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
+                        }`}
                         placeholder="your.email@example.com"
                         value={formData.email}
                         onChange={handleInputChange}
                         data-testid="input-email"
                       />
                     </div>
+                    {errors.email && (
+                      <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                        <span>•</span>
+                        {errors.email}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -202,13 +298,21 @@ export default function SignIn() {
                         name="password"
                         type="password"
                         required
-                        className="pl-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                          errors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
+                        }`}
                         placeholder="Enter your password"
                         value={formData.password}
                         onChange={handleInputChange}
                         data-testid="input-password"
                       />
                     </div>
+                    {errors.password && (
+                      <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                        <span>•</span>
+                        {errors.password}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -247,7 +351,6 @@ export default function SignIn() {
                     {signinMutation.isPending ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
-
 
                 <div className="text-center pt-4 border-t border-gray-100">
                   <p className="text-gray-600">

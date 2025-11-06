@@ -702,40 +702,17 @@ export default function ProductDetail() {
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  {/* Pricing block: show original price (if any), prominent current price, discount badge and offers fallback */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      {/* Original price (muted, struck-through) - support both originalPrice and originalprice */}
-                      {(product as any).originalPrice || (product as any).originalprice ? (
-                        <span className="text-lg text-gray-500 line-through">
-                          ₹{parseFloat(String((product as any).originalPrice ?? (product as any).originalprice)).toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-sm">No orig</span>
+                <div className="flex items-center gap-2 mb-3">
+                      {product.originalprice && (
+                        <span className="text-gray-500 line-through text-sm">₹{product.originalprice}</span>
                       )}
-
-                      {/* Current / selling price (prominent) */}
-                      <span className="text-4xl font-bold text-pink-600">
-                        ₹{parseFloat(String(product.price)).toLocaleString()}
-                      </span>
-
-                      {/* Discount badge (support discountPercentage or discount_percentage) */}
-                      {((product as any).discountPercentage ?? (product as any).discount_percentage) ? (
-                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-sm font-semibold">
-                          {(product as any).discountPercentage ?? (product as any).discount_percentage}% OFF
+                      <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
+                      {product.discount_percentage && (
+                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                          {product.discount_percentage}% OFF
                         </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No %</span>
-                      )}
-
-                      {/* Offers flag fallback */}
-                      {!((product as any).discounts_offers ?? (product as any).discountsOffers ?? (product as any).discountsOffers) && (
-                        <span className="text-gray-400 text-xs">✗Offers</span>
                       )}
                     </div>
-                  </div>
-                </div>
               </div>
 
               <Separator className="transition-all duration-500 animate-in fade-in" />

@@ -118,19 +118,34 @@ export const getPincodeDistanceInfo = (pincode: string) => {
 
 // Address form schema
 const addressFormSchema = z.object({
-  fullname: z.string().min(1, "Full name is required"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  email: z.string().email("Invalid email"),
-  addressline1: z.string().min(1, "Address line 1 is required"),
-  addressline2: z.string().min(1, "Address line 2 is required"),
-  landmark: z.string().min(1, "Landmark is required"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
+  fullname: z.string().min(1, "Please enter your full name"),
+  phone: z.string()
+    .min(10, "Please enter a valid 10-digit mobile number")
+    .regex(/^[6-9]\d{9}$/, "Please enter a correct mobile number"),
+  email: z.string()
+    .min(1, "Please enter your email address")
+    .email("Please enter a correct email address")
+    .refine((email) => {
+      // Check for valid domain extensions
+      const validDomains = /\.(com|org|net|edu|gov|mil|int|co\.in|in|co\.uk|uk|de|fr|jp|au|ca|us|io|me|xyz|info|biz)$/i;
+      return validDomains.test(email);
+    }, "Please enter a valid email address with correct domain")
+    .refine((email) => {
+      // Additional check for common typos
+      const invalidPatterns = /\.(co\.m|co\.om|gmai\.com|yahooo|gmial|hotmial)$/i;
+      return !invalidPatterns.test(email);
+    }, "Please check your email address for typos"),
+  addressline1: z.string().min(1, "Please enter your address"),
+  addressline2: z.string().min(1, "Please enter additional address details"),
+  landmark: z.string().min(1, "Please enter a nearby landmark"),
+  city: z.string().min(1, "Please enter your city"),
+  state: z.string().min(1, "Please enter your state"),
   postalcode: z.string()
-    .min(6, "Postal code must be 6 digits")
-    .max(6, "Postal code must be 6 digits")
+    .min(6, "Please enter a valid 6-digit postal code")
+    .max(6, "Please enter a valid 6-digit postal code")
+    .regex(/^\d{6}$/, "Postal code should contain only numbers")
     .refine((code) => ALLOWED_PIN_CODES.includes(code), {
-      message: "This postal code is not in our delivery area"
+      message: "Sorry, we don't deliver to this postal code yet"
     }),
   country: z.string().default("India"),
   addresstype: z.enum(["Home", "Office", "Other"]).default("Home"),
@@ -218,13 +233,38 @@ function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; on
       });
 
       if (!response.ok) {
-        let errorText;
+        let errorMessage = "Failed to save address. Please try again.";
+        
         try {
-          errorText = await response.text();
+          const errorData = await response.json();
+          if (errorData.message) {
+            // Convert technical errors to user-friendly messages
+            const message = errorData.message.toLowerCase();
+            if (message.includes('phone') || message.includes('mobile')) {
+              errorMessage = "Please enter a correct mobile number";
+            } else if (message.includes('email')) {
+              if (message.includes('invalid') || message.includes('format')) {
+                errorMessage = "Please enter a valid email address (e.g., name@gmail.com)";
+              } else {
+                errorMessage = "Please enter a correct email address";
+              }
+            } else if (message.includes('postal') || message.includes('pin')) {
+              errorMessage = "Please enter a valid postal code";
+            } else if (message.includes('address')) {
+              errorMessage = "Please check your address details";
+            } else if (message.includes('required') || message.includes('missing')) {
+              errorMessage = "Please fill in all required fields";
+            } else if (message.includes('validation') || message.includes('invalid')) {
+              errorMessage = "Please check your information and correct any errors";
+            } else {
+              errorMessage = "Please check your information and try again";
+            }
+          }
         } catch (e) {
-          errorText = `HTTP ${response.status} ${response.statusText}`;
+          // Keep the default user-friendly message
         }
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
+        
+        throw new Error(errorMessage);
       }
 
       let result;
@@ -277,12 +317,20 @@ function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; on
             <Label htmlFor="phone">Phone Number *</Label>
             <Input
               id="phone"
-              {...form.register("phone")}
-              placeholder="Enter phone number"
-              className="border-gray-300 focus:border-pink-500 focus:ring-pink-500"
+              {...form.register("phone", {
+                onBlur: () => form.trigger("phone")
+              })}
+              placeholder="Enter 10-digit mobile number"
+              maxLength={10}
+              className={`border-gray-300 focus:border-pink-500 focus:ring-pink-500 ${
+                form.formState.errors.phone ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
+              }`}
             />
             {form.formState.errors.phone && (
-              <p className="text-sm text-red-600 mt-1">{form.formState.errors.phone.message}</p>
+              <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {form.formState.errors.phone.message}
+              </p>
             )}
           </div>
         </div>
@@ -292,12 +340,19 @@ function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; on
           <Input
             id="email"
             type="email"
-            {...form.register("email")}
-            placeholder="Enter email address"
-            className="border-gray-300 focus:border-pink-500 focus:ring-pink-500"
+            {...form.register("email", {
+              onBlur: () => form.trigger("email")
+            })}
+            placeholder="Enter email address (e.g., name@gmail.com)"
+            className={`border-gray-300 focus:border-pink-500 focus:ring-pink-500 ${
+              form.formState.errors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
+            }`}
           />
           {form.formState.errors.email && (
-            <p className="text-sm text-red-600 mt-1">{form.formState.errors.email.message}</p>
+            <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {form.formState.errors.email.message}
+            </p>
           )}
         </div>
 
@@ -1682,9 +1737,6 @@ export default function Checkout() {
                                       <h3 className="font-medium text-foreground text-sm truncate" data-testid={`text-product-name-${item.id}`}>
                                         {item.name}
                                       </h3>
-                                      <p className="text-xs text-muted-foreground mb-2">
-                                        {item.category}
-                                      </p>
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-1">
                                           <Button
@@ -1775,9 +1827,7 @@ export default function Checkout() {
                                           <h3 className="font-medium text-foreground text-sm sm:text-base truncate" data-testid={`text-product-name-${item.id}`}>
                                             {item.name}
                                           </h3>
-                                          <p className="text-xs sm:text-sm text-muted-foreground">
-                                            {item.category}
-                                          </p>
+                                      
                                           <p className="text-xs sm:hidden text-muted-foreground">
                                             {formatPrice(item.price)}
                                           </p>
