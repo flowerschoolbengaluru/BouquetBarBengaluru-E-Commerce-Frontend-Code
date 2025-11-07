@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Mail, Lock, ShoppingBag, GraduationCap, Star } from "lucide-react";
+import { ArrowLeft, Mail, Lock, ShoppingBag, GraduationCap, Star, Eye, EyeOff } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757484444893.png";
@@ -20,6 +20,8 @@ export default function SignIn() {
     password: "",
     general: ""
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showCreateAccountCTA, setShowCreateAccountCTA] = useState(false);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -58,17 +60,71 @@ export default function SignIn() {
         password: "",
         general: ""
       });
+      setShowCreateAccountCTA(false);
 
       if (error?.response) {
         try {
           const status = error.response.status;
           const text = await error.response.text();
-          
-          console.log('Sign-in error:', { status, text }); // For debugging
-          
-          // Handle 401 Unauthorized - Invalid credentials
+          let parsed: any = null;
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            parsed = (text || "").toString();
+          }
+
+          // Handle 401 Unauthorized - inspect body to decide message
           if (status === 401) {
-            // Show generic error message for security - don't reveal if email exists or not
+            // Parse server response strictly. Only show the create-account modal when
+            // the server explicitly indicates the email is not registered.
+            const bodyObj = typeof parsed === "object" && parsed !== null ? parsed : null;
+            const bodyText = typeof parsed === "string" ? parsed : (bodyObj?.message || bodyObj?.error || "");
+
+            // Strict email-not-found detection:
+            // - Prefer a machine-level `code` if present (e.g., { code: 'email_not_found' })
+            // - Or exact/clear messages like "Email incorrect", "Email not found", "User not found"
+            const emailNotFoundCode = !!(bodyObj && (bodyObj.code === 'email_not_found' || bodyObj.code === 'no_such_user'));
+            const emailNotFoundText = /^(email\s+(incorrect|not found|does not exist)|user not found|no user|no such user)$/i.test((bodyObj?.message || bodyObj?.error || bodyObj?.details || bodyText || '').toString().trim());
+
+            if (emailNotFoundCode || emailNotFoundText) {
+              // Before showing the create-account modal, call the server to check
+              // whether the provided password exists for any account. If the
+              // password matches an existing account, do NOT show the modal (per
+              // user's requirement) — instead show a generic invalid-credentials message.
+              try {
+                const res = await apiRequest("/api/auth/credential-check", {
+                  method: "POST",
+                  body: JSON.stringify({ email: formData.email, password: formData.password })
+                });
+                const info = await res.json();
+                const emailExistsFlag = !!info.emailExists;
+                const passwordMatchesAny = !!info.passwordMatchesAny;
+
+                if (!emailExistsFlag && !passwordMatchesAny) {
+                  const msg = (bodyObj?.details || bodyObj?.message || bodyText) || 'Email not registered';
+                  setErrors({ email: msg, password: "", general: "" });
+                  setShowCreateAccountCTA(true);
+                  return;
+                } else {
+                  // Don't show modal — either email or password matched some record.
+                  setErrors({ email: "", password: "", general: "Invalid email or password. Please check your credentials and try again." });
+                  return;
+                }
+              } catch (e) {
+                // If the credential check fails for any reason, fall back to a safe generic message
+                setErrors({ email: "", password: "", general: "Invalid email or password. Please check your credentials and try again." });
+                return;
+              }
+            }
+
+            // Password-specific detection (do NOT open modal)
+            const passwordIncorrect = /password|incorrect|invalid password/i.test((bodyObj?.message || bodyObj?.error || bodyObj?.details || bodyText || '').toString());
+            if (passwordIncorrect) {
+              setErrors({ email: "", password: "Your password is incorrect, enter the right password", general: "" });
+              return;
+            }
+
+            // Otherwise, show a generic invalid credentials message (no create-account modal)
             setErrors({
               email: "",
               password: "",
@@ -96,11 +152,7 @@ export default function SignIn() {
           
         } catch (e) {
           // If we can't read the response
-          setErrors({
-            email: "",
-            password: "",
-            general: "Connection error. Please try again."
-          });
+          setErrors({ email: "", password: "", general: "Connection error. Please try again." });
         }
       } else if (error?.message) {
         // Network errors (no response from server)
@@ -119,11 +171,7 @@ export default function SignIn() {
         }
       } else {
         // Unknown error
-        setErrors({
-          email: "",
-          password: "",
-          general: "An unexpected error occurred. Please try again."
-        });
+        setErrors({ email: "", password: "", general: "An unexpected error occurred. Please try again." });
       }
     },
   });
@@ -150,7 +198,8 @@ export default function SignIn() {
       newErrors.email = "Email is required";
       hasError = true;
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+      // User requested a friendlier validation string
+      newErrors.email = "You email is incorrect, enter correct email.";
       hasError = true;
     }
 
@@ -257,8 +306,13 @@ export default function SignIn() {
               <CardContent className="space-y-6">
                 {/* General Error Message */}
                 {errors.general && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {errors.general}
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md flex items-center justify-between">
+                    <div>{errors.general}</div>
+                    {showCreateAccountCTA && (
+                      <Link href="/signup" className="text-primary font-semibold ml-4">
+                        Create account
+                      </Link>
+                    )}
                   </div>
                 )}
 
@@ -293,19 +347,32 @@ export default function SignIn() {
                     <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        required
-                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
-                          errors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
-                        }`}
-                        placeholder="Enter your password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        data-testid="input-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                            errors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''
+                          }`}
+                          placeholder="Enter your password"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          data-testid="input-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowPassword((s) => !s)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          data-testid="toggle-signin-password-visibility"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                     {errors.password && (
                       <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
@@ -351,6 +418,29 @@ export default function SignIn() {
                     {signinMutation.isPending ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
+
+                {/* Create-account modal (shown when server says email not found) */}
+                {showCreateAccountCTA && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="w-full max-w-md p-6">
+                      <div className="bg-white rounded-lg shadow-lg p-6">
+                        <h3 className="text-lg font-semibold mb-2">You don't have an account</h3>
+                        <p className="text-sm text-gray-600 mb-4">It looks like the email you entered isn't registered. Would you like to create an account first, then sign in with the same credentials?</p>
+                        <div className="flex gap-3 justify-end">
+                          <Button variant="ghost" onClick={() => setShowCreateAccountCTA(false)}>Cancel</Button>
+                          <Button onClick={() => {
+                            // Navigate to signup and prefill email via query param
+                            const emailParam = formData.email ? `?email=${encodeURIComponent(formData.email)}` : '';
+                            setShowCreateAccountCTA(false);
+                            setLocation(`/signup${emailParam}`);
+                          }}>
+                            Create account
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="text-center pt-4 border-t border-gray-100">
                   <p className="text-gray-600">

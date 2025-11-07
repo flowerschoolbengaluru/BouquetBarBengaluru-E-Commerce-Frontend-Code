@@ -241,15 +241,19 @@ export default function Shop() {
 
   // Handle clicking outside to close suggestions
   useEffect(() => {
+    // Use 'click' instead of 'mousedown' so clicks on suggestion items
+    // register before the outside-close handler hides the list. If we
+    // close on mousedown the element may be removed before its onClick
+    // fires, preventing navigation.
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
@@ -1132,14 +1136,7 @@ export default function Shop() {
                 <ShoppingCart className="h-5 w-5 text-pink-600" />
                 Shopping Cart ({totalItems} {totalItems === 1 ? 'item' : 'items'})
               </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowCartModal(false)}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+             
             </div>
             <DialogDescription className="text-gray-600 text-sm">
               Review your items and proceed to checkout

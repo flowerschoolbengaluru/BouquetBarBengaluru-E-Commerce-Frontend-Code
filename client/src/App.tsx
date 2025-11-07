@@ -1,7 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
+// Toaster removed — user requested no right-side popup/toast UI
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/hooks/cart-context";
 import { AuthProvider } from "@/hooks/user-auth";
@@ -54,9 +54,8 @@ function AppWithCart() {
   });
  
   return (
-    <CartProvider userId={user?.id}>
+      <CartProvider userId={user?.id}>
       <TooltipProvider>
-        <Toaster />
         <Router />
       </TooltipProvider>
     </CartProvider>

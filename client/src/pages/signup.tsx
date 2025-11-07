@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, User, Mail, Phone, Lock, ChevronDown, AlertCircle, CheckCircle, X } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Lock, ChevronDown, AlertCircle, CheckCircle, X, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,11 +24,15 @@ export default function SignUp() {
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const [showErrorAlert, setShowErrorAlert] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const { login } = useAuth();
+  // Not auto-logging in after signup — users will be redirected to sign-in
 
   const signupMutation = useMutation({
     mutationFn: async (userData: { firstName: string; lastName: string; email: string; phone: string; password: string }) => {
@@ -41,36 +45,61 @@ export default function SignUp() {
       setFieldErrors({});
       setShowErrorAlert(false);
       const data = await response.json();
-      login(data.user);
-      
-      // Show success toast
+
+      // Do NOT auto-login. Show a friendly success message and then redirect to sign-in.
+      const name = data?.user?.firstname || "user";
+      const msg = `You have successfully registered, ${name}. Redirecting to sign in...`;
+      setSuccessMessage(msg);
+      setShowSuccessAlert(true);
+
+      // Optional toast (Toaster may be removed globally) — keep for compatibility
       toast({
-        title: "🎉 Welcome to Bouquet Bar!",
-        description: `Account created successfully for ${data.user.firstname}!`,
-        duration: 3000,
+        title: "Registration successful",
+        description: `Account created for ${name}. Redirecting to sign in...`,
+        duration: 2500,
       });
+
+      // Redirect to sign-in after a short delay so user sees the message
+      setTimeout(() => {
+        setShowSuccessAlert(false);
+        setLocation("/signin");
+      }, 2000);
     },
     onError: async (error: any) => {
       let errorMsg = "Failed to create account. Please try again.";
       setFieldErrors({});
-      
+
+      // apiRequest throws an Error with message like "409: {json or text}"
+      // Try to parse status and JSON body from the error.message when response is not available
       if (error?.response) {
         try {
           const data = await error.response.json();
-          
-          // Handle different error types
+
           if (data.errors) {
             setFieldErrors(data.errors);
-            // Show the first field error in alert
             const firstError = Object.values(data.errors)[0] as string;
             setErrorMessage(firstError || errorMsg);
             setShowErrorAlert(true);
-          } else if (data.message) {
-            errorMsg = data.message;
-            setErrorMessage(errorMsg);
-            setShowErrorAlert(true);
-          } else if (data.error) {
-            errorMsg = data.error;
+            errorMsg = firstError || errorMsg;
+          } else if (data.message || data.error) {
+            // Prefer specific error + details when provided by the server
+            if (data.error && data.details) {
+              errorMsg = `${data.error}, ${data.details}`;
+              // If it's an email conflict, attach to email field
+              if (/email/i.test(data.error)) {
+                setFieldErrors({ email: errorMsg });
+              } else if (/phone|mobile/i.test(data.error)) {
+                setFieldErrors({ phone: errorMsg });
+              }
+            } else {
+              errorMsg = data.error || data.message;
+              // Detect common conflict messages and map to field errors
+              if (/email/i.test(errorMsg) && /exist|registered|already/i.test(errorMsg)) {
+                setFieldErrors({ email: "This email is already registered. Try signing in." });
+              } else if (/phone|mobile/i.test(errorMsg) && /exist|registered|already/i.test(errorMsg)) {
+                setFieldErrors({ phone: "This phone number is already registered. Try signing in." });
+              }
+            }
             setErrorMessage(errorMsg);
             setShowErrorAlert(true);
           }
@@ -79,10 +108,68 @@ export default function SignUp() {
           setErrorMessage(errorMsg);
           setShowErrorAlert(true);
         }
-      } else if (error.message) {
-        errorMsg = error.message;
-        setErrorMessage(errorMsg);
-        setShowErrorAlert(true);
+      } else if (typeof error?.message === "string") {
+        // Parse messages formatted by apiRequest: "<status>: <body>"
+        const parts = error.message.split(":");
+        const statusPart = parts.shift()?.trim() || "";
+        const bodyText = parts.join(":").trim();
+        const statusCode = Number(statusPart) || undefined;
+
+        let parsed: any = null;
+        try {
+          parsed = JSON.parse(bodyText);
+        } catch {
+          // bodyText might be plain text
+          parsed = bodyText || null;
+        }
+
+        if (parsed && typeof parsed === "object") {
+          if (parsed.errors) {
+            setFieldErrors(parsed.errors);
+            const firstError = Object.values(parsed.errors)[0] as string;
+            setErrorMessage(firstError || errorMsg);
+            setShowErrorAlert(true);
+            errorMsg = firstError || errorMsg;
+          } else if (parsed.message || parsed.error) {
+            // Prefer error + details if present
+            if (parsed.error && parsed.details) {
+              errorMsg = `${parsed.error}, ${parsed.details}`;
+              if (/email/i.test(parsed.error)) {
+                setFieldErrors({ email: errorMsg });
+              } else if (/phone|mobile/i.test(parsed.error)) {
+                setFieldErrors({ phone: errorMsg });
+              }
+            } else {
+              errorMsg = parsed.error || parsed.message;
+              if (statusCode === 409 || /exist|registered|already/i.test(errorMsg)) {
+                if (/email/i.test(errorMsg)) {
+                  setFieldErrors({ email: "This email is already registered. Try signing in." });
+                } else if (/phone|mobile/i.test(errorMsg)) {
+                  setFieldErrors({ phone: "This phone number is already registered. Try signing in." });
+                }
+              }
+            }
+            setErrorMessage(errorMsg);
+            setShowErrorAlert(true);
+          }
+        } else if (typeof parsed === "string" && parsed.length > 0) {
+          errorMsg = parsed;
+          // heuristics for conflict messages
+          if (statusCode === 409 || /exist/i.test(errorMsg)) {
+            if (/email/i.test(errorMsg)) {
+              setFieldErrors({ email: "This email is already registered. Try signing in." });
+            } else if (/phone|mobile/i.test(errorMsg)) {
+              setFieldErrors({ phone: "This phone number is already registered. Try signing in." });
+            }
+          }
+          setErrorMessage(errorMsg);
+          setShowErrorAlert(true);
+        } else {
+          // Fallback: network or unknown error
+          errorMsg = error.message || errorMsg;
+          setErrorMessage(errorMsg);
+          setShowErrorAlert(true);
+        }
       }
 
       // Also show toast for immediate feedback
@@ -112,11 +199,11 @@ export default function SignUp() {
       newErrors.lastName = "Last name must be at least 2 characters";
     }
 
-    // Email validation
+    // Email validation - require .com TLD only
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+    } else if (!/^[^\s@]+@[^\s@]+\.com$/i.test(formData.email)) {
+      newErrors.email = "Please enter a valid .com email address (e.g. user@example.com)";
     }
 
     // Phone validation
@@ -259,6 +346,25 @@ export default function SignUp() {
               </CardHeader>
               
               <CardContent className="space-y-6">
+                {/* Success Alert */}
+                {showSuccessAlert && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in duration-300">
+                    <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-green-800 font-medium">Registration successful</p>
+                      <p className="text-sm text-green-700 mt-1">{successMessage}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowSuccessAlert(false)}
+                      className="h-6 w-6 text-green-600 hover:bg-green-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
                 {/* Error Alert */}
                 {showErrorAlert && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in duration-300">
@@ -408,9 +514,9 @@ export default function SignUp() {
                       <Input
                         id="password"
                         name="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
-                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                        className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
                           fieldErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
                         }`}
                         placeholder="Create a strong password"
@@ -418,6 +524,17 @@ export default function SignUp() {
                         onChange={handleInputChange}
                         data-testid="input-password"
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowPassword((s) => !s)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        data-testid="toggle-password-visibility"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
                     </div>
                     {fieldErrors.password && (
                       <p className="text-xs text-red-600 flex items-center gap-1">
@@ -437,9 +554,9 @@ export default function SignUp() {
                       <Input
                         id="confirmPassword"
                         name="confirmPassword"
-                        type="password"
+                        type={showConfirmPassword ? "text" : "password"}
                         required
-                        className={`pl-10 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+                        className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
                           fieldErrors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
                         }`}
                         placeholder="Confirm your password"
@@ -447,6 +564,17 @@ export default function SignUp() {
                         onChange={handleInputChange}
                         data-testid="input-confirm-password"
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowConfirmPassword((s) => !s)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                        data-testid="toggle-confirm-password-visibility"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
                     </div>
                     {fieldErrors.confirmPassword && (
                       <p className="text-xs text-red-600 flex items-center gap-1">
