@@ -416,7 +416,7 @@ export default function ShopNav() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Delivery</span>
-                  <span className="text-green-600">Extra Delivery Charges</span>
+                  <span className="text-green-600">Delivery charges will vary depending on the porter or third-party delivery services</span>
                 </div>
                 <Separator className="border-pink-100" />
                 <div className="flex justify-between text-base sm:text-lg font-bold">

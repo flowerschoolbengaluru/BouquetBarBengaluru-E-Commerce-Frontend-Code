@@ -29,11 +29,20 @@ const setCookie = (name: string, value: string, options: {
   path?: string;
   domain?: string;
 } = {}) => {
+  const defaults = {
+    days: 7,
+    // Default secure to true only when running over HTTPS (local dev on http won't set Secure cookies)
+    secure: (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') ? true : false,
+    sameSite: 'Lax' as 'Lax',
+    path: '/',
+    domain: undefined as string | undefined,
+  };
+
   const {
-    days = 7,
-    secure = true,
-    sameSite = 'Lax',
-    path = '/',
+    days = defaults.days,
+    secure = defaults.secure,
+    sameSite = defaults.sameSite,
+    path = defaults.path,
     domain
   } = options;
  

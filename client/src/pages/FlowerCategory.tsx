@@ -636,7 +636,11 @@ const FlowerCategory: React.FC = () => {
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    window.location.href = `/products?category=${encodeURIComponent(categoryId.toLowerCase())}`;
+    // Navigate to the products page using only the top-level category.
+    // Avoid including a long comma-separated `subcategory` query string
+    // which was causing the UI to display all subcategory names.
+    const url = `/products?category=${encodeURIComponent(categoryId.toLowerCase())}`;
+    window.location.href = url;
   };
 
   const handleMouseEnter = (categoryId: string, event: React.MouseEvent) => {

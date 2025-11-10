@@ -4,8 +4,10 @@ import { Link, useLocation } from 'wouter';
 import { Checkbox } from '@/components/ui/checkbox';
 import ShopNav from './ShopNav';
 import Footer from '@/components/footer';
-import { ChevronDown, ChevronUp, Filter, X, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter, X, Search, ShoppingCart } from 'lucide-react';
 import { apiRequest } from "@/lib/queryClient";
+import { useCart } from '@/hooks/cart-context';
+import { useToast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
@@ -29,6 +31,9 @@ interface Product {
   colour?: string;
   discounts_offers?: boolean;
   isActive: boolean;
+  // backend may use `isbestseller` (lowercase) or `isBestSeller` (camelCase)
+  isbestseller?: boolean;
+  isBestSeller?: boolean;
 }
  
 interface FilterState {
@@ -73,6 +78,8 @@ export default function ProductsListing() {
   });
  
   const [forceRefetch, setForceRefetch] = useState(0);
+  const cart = useCart();
+  const { toast } = useToast();
  
   // React to route/query changes so search works from anywhere (ShopNav, categories, etc.)
   useEffect(() => {
@@ -84,13 +91,24 @@ export default function ProductsListing() {
         search: currentSearchParams.get('search') ? decodeURIComponent(currentSearchParams.get('search')!) : null,
       };
 
+      // Extract common filter params from URL so we can keep filter state in sync
+      const parsedFlowerTypes = currentSearchParams.get('flowerTypes')
+        ? currentSearchParams.get('flowerTypes')!.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const parsedArrangements = currentSearchParams.get('arrangements')
+        ? currentSearchParams.get('arrangements')!.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const parsedColors = currentSearchParams.get('colors')
+        ? currentSearchParams.get('colors')!.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
       // Check if params actually changed to avoid unnecessary updates
       const paramsChanged = 
         newParams.category !== urlParams.category ||
         newParams.subcategory !== urlParams.subcategory ||
         newParams.search !== urlParams.search;
 
-      if (!paramsChanged) return;
+      if (!paramsChanged && parsedFlowerTypes.length === 0 && parsedArrangements.length === 0 && parsedColors.length === 0) return;
 
       // Reset filters only if category context actually changed
       const categoryChanged = newParams.category !== urlParams.category || newParams.subcategory !== urlParams.subcategory;
@@ -110,6 +128,14 @@ export default function ProductsListing() {
           featured: false,
           bestSeller: false
         });
+      } else {
+        // If category didn't change, keep existing filters but sync ones present in URL
+        setFilters(prev => ({
+          ...prev,
+          flowerTypes: parsedFlowerTypes.length ? parsedFlowerTypes.map(s => s.toLowerCase()) : prev.flowerTypes,
+          arrangements: parsedArrangements.length ? parsedArrangements.map(s => s.toLowerCase()) : prev.arrangements,
+          colors: parsedColors.length ? parsedColors : prev.colors
+        }));
       }
 
       // Also clear category-based filters when using search or switching to non-category filtering
@@ -148,72 +174,259 @@ export default function ProductsListing() {
     filters.bestSeller,
     filters.colors,
     filters.priceRange,
+    filters.flowerTypes,
+    filters.arrangements,
     forceRefetch
   ],
   queryFn: async () => {
     const params = new URLSearchParams();
  
-    // ✅ If "in stock only" OR "best seller" checked → ignore category/subcategory
-    if (filters.inStock || filters.bestSeller) {
-      if (filters.inStock) params.append('inStock', 'true');
-      if (filters.bestSeller) params.append('bestSeller', 'true');
- 
-      if (urlParams.search) params.append('search', urlParams.search);
-      if (filters.priceRange[0] > 0) params.append('minPrice', filters.priceRange[0] + '');
-      if (filters.priceRange[1] < 10000) params.append('maxPrice', filters.priceRange[1] + '');
-      if (filters.colors.length) params.append('colors', filters.colors.join(','));
-      if (filters.featured) params.append('featured', 'true');
-    } else {
-      // ✅ Normal mode: if a search term exists, treat it as global (ignore category/subcategory)
-      if (urlParams.search) {
-        params.append('search', urlParams.search);
-      } else {
-        if (urlParams.category) params.append('category', urlParams.category);
-        if (urlParams.subcategory) params.append('subcategory', urlParams.subcategory);
-      }
- 
-      if (filters.priceRange[0] > 0) params.append('minPrice', filters.priceRange[0] + '');
-      if (filters.priceRange[1] < 10000) params.append('maxPrice', filters.priceRange[1] + '');
-      if (filters.flowerTypes.length) params.append('flowerTypes', filters.flowerTypes.join(','));
-      if (filters.arrangements.length) params.append('arrangements', filters.arrangements.join(','));
-      if (filters.colors.length) params.append('colors', filters.colors.join(','));
-      if (filters.featured) params.append('featured', 'true');
-      if (filters.bestSeller) params.append('bestSeller', 'true');
+    // Debug logging
+    if (urlParams.category || urlParams.subcategory) {
+      console.log('ProductsListing: Searching for category:', urlParams.category, 'subcategory:', urlParams.subcategory);
     }
+ 
+    // Always include search if it exists
+    if (urlParams.search) {
+      params.append('search', urlParams.search);
+    }
+    
+    // Always include category/subcategory if they exist (unless overridden by special filters)
+    if (urlParams.category && !filters.inStock && !filters.bestSeller) {
+      params.append('category', urlParams.category);
+    }
+    if (urlParams.subcategory && !filters.inStock && !filters.bestSeller) {
+      params.append('subcategory', urlParams.subcategory);
+    }
+
+    // Include all filter parameters
+    if (filters.inStock) params.append('inStock', 'true');
+    if (filters.featured) params.append('featured', 'true');
+    if (filters.bestSeller) params.append('bestSeller', 'true');
+    if (filters.priceRange[0] > 0) params.append('minPrice', filters.priceRange[0] + '');
+    if (filters.priceRange[1] < 10000) params.append('maxPrice', filters.priceRange[1] + '');
+    if (filters.colors.length) params.append('colors', filters.colors.join(','));
+    if (filters.flowerTypes.length) params.append('flowerTypes', filters.flowerTypes.join(','));
+    if (filters.arrangements.length) params.append('arrangements', filters.arrangements.join(','));
  
     const res = await apiRequest(`/api/products?${params.toString()}`);
  
     if (!res.ok) throw new Error("Failed to fetch");
  
     const data = await res.json();
- 
-    // ✅ CLIENT-SIDE filtering
-    return data.filter((p: Product) => {
+
+    // Normalize `category`/`subcategory`/`name`/`description` to make client-side
+    // matching resilient to backend stringified-array formats like '[]' or
+    // comma-separated strings. We add lightweight _normalized* helpers on each
+    // product object (used only for filtering; we keep original fields for UI).
+    data.forEach((p: any) => {
+      let cats: string[] = [];
+      try {
+        if (typeof p.category === 'string') {
+          const s = p.category.trim();
+          if (s.startsWith('[') && s.endsWith(']')) {
+            const parsed = JSON.parse(s);
+            if (Array.isArray(parsed)) cats = parsed.map((c: any) => String(c).toLowerCase().trim());
+          } else if (s.includes(',')) {
+            cats = s.split(',').map((c: string) => c.replace(/["\[\]]/g, '').toLowerCase().trim());
+          } else {
+            cats = [s.replace(/["\[\]]/g, '').toLowerCase().trim()];
+          }
+        } else if (Array.isArray(p.category)) {
+          cats = p.category.map((c: any) => String(c).toLowerCase().trim());
+        }
+      } catch (e) {
+        cats = String(p.category || '').replace(/["\[\]]/g, '').split(',').map((c: string) => c.toLowerCase().trim()).filter(Boolean);
+      }
+
+      (p as any)._normalizedCategories = cats;
+      (p as any)._nc = cats.join(' ');
+      (p as any)._normalizedSubcategory = p.subcategory ? String(p.subcategory).toLowerCase().trim() : '';
+      (p as any)._normalizedName = p.name ? String(p.name).toLowerCase() : '';
+      (p as any)._normalizedDescription = p.description ? String(p.description).toLowerCase() : '';
+    });
+
+    console.log('ProductsListing: API returned', data.length, 'products');
+
+    // If the user has explicitly activated any filters (flowerTypes/arrangements/colors/etc.),
+    // trust the backend response and skip heavy client-side filtering. This prevents the
+    // client from accidentally removing products the API correctly returned for the
+    // selected multi-filter combination.
+    const hasActiveFilter = (
+      filters.flowerTypes.length > 0 ||
+      filters.arrangements.length > 0 ||
+      filters.colors.length > 0 ||
+      filters.inStock ||
+      filters.featured ||
+      filters.bestSeller ||
+      filters.priceRange[0] > 0 ||
+      filters.priceRange[1] < 10000
+    );
+
+    if (hasActiveFilter) {
+      console.log('ProductsListing: Active filters detected — returning API results without further client-side filtering (count=' + data.length + ')');
+      return data;
+    }
+
+    // Enhanced CLIENT-SIDE filtering to support multiple filters (used when no explicit filters are set)
+    const filteredData = data.filter((p: Product) => {
+      // Debug logging for Roses subcategory
+      if (urlParams.subcategory && urlParams.subcategory.toLowerCase() === 'roses') {
+        console.log('DEBUG: Checking product for Roses:', {
+          name: p.name,
+          category: p.category,
+          subcategory: p.subcategory,
+          nameMatch: p.name.toLowerCase().includes('roses'),
+          categoryMatch: p.category.toLowerCase().includes('roses')
+        });
+      }
+      
       const price = parseFloat(p.price);
  
+      // Search filter (use normalized helpers)
+      const q = urlParams.search ? urlParams.search.toLowerCase() : '';
       const matchesSearch =
-        !urlParams.search ||
-        p.name.toLowerCase().includes(urlParams.search.toLowerCase()) ||
-        p.description.toLowerCase().includes(urlParams.search.toLowerCase()) ||
-        p.category.toLowerCase().includes(urlParams.search.toLowerCase()) ||
-        (p.subcategory && p.subcategory.toLowerCase().includes(urlParams.search.toLowerCase()));
+        !q ||
+        ((p as any)._normalizedName && (p as any)._normalizedName.includes(q)) ||
+        ((p as any)._normalizedDescription && (p as any)._normalizedDescription.includes(q)) ||
+        ((p as any)._nc && (p as any)._nc.includes(q)) ||
+        ((p as any)._normalizedSubcategory && (p as any)._normalizedSubcategory.includes(q));
  
+      // Price filter - always apply regardless of category
       const matchesPrice = price >= filters.priceRange[0] && price <= filters.priceRange[1];
  
+      // Category/Subcategory filter - more flexible matching
+      // (moved/expanded below to allow grouping ids like "flower-types" to work correctly)
+
+        // Support comma-separated subcategory URL param (e.g. "Roses,Tulips,...")
+        const subcategoryList = urlParams.subcategory
+          ? urlParams.subcategory.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+          : [];
+
+        // Determine if product matches any provided subcategory terms (use normalization)
+        let matchesSubcategory: boolean;
+        if (subcategoryList.length === 0) {
+          const sub = urlParams.subcategory ? urlParams.subcategory.toLowerCase() : '';
+          matchesSubcategory = !urlParams.subcategory ||
+            filters.inStock || filters.bestSeller ||
+            ((p as any)._normalizedSubcategory && (p as any)._normalizedSubcategory.includes(sub)) ||
+            ((p as any)._nc && (p as any)._nc.includes(sub)) ||
+            ((p as any)._normalizedName && (p as any)._normalizedName.includes(sub)) ||
+            ((p as any)._normalizedDescription && (p as any)._normalizedDescription.includes(sub));
+        } else {
+          // If multiple subcategories were provided, match when ANY of them match the product
+          matchesSubcategory = subcategoryList.some(sc =>
+            ((p as any)._normalizedSubcategory && (p as any)._normalizedSubcategory.includes(sc)) ||
+            ((p as any)._nc && (p as any)._nc.includes(sc)) ||
+            ((p as any)._normalizedName && (p as any)._normalizedName.includes(sc)) ||
+            ((p as any)._normalizedDescription && (p as any)._normalizedDescription.includes(sc))
+          );
+          // When navigating by URL and no special toggles are set, allow navigation to show results
+          if (!filters.inStock && !filters.bestSeller && (urlParams.category || urlParams.subcategory)) {
+            matchesSubcategory = true;
+          }
+        }
+
+        // When navigating by URL category/subcategory, don't apply additional filter restrictions
+        const isUrlNavigation = !!(urlParams.category || urlParams.subcategory);
+
+        // Category matching: allow top-level category ids like "flower-types" to pass when subcategory matches
+        const catQ = urlParams.category ? urlParams.category.toLowerCase() : '';
+        const matchesCategory = !urlParams.category ||
+          filters.inStock || filters.bestSeller ||
+          ((p as any)._nc && catQ && (p as any)._nc.includes(catQ)) ||
+          ((p as any)._normalizedName && catQ && (p as any)._normalizedName.includes(catQ)) ||
+          ((p as any)._normalizedSubcategory && catQ && (p as any)._normalizedSubcategory.includes(catQ)) ||
+          // If a subcategory was provided in the URL and it matches this product, allow the category navigation
+          (urlParams.subcategory && matchesSubcategory);
+
+        // Flower types filter
+        // If the user explicitly set flowerTypes, trust the backend results to avoid double-filtering
+        let matchesFlowerTypes: boolean;
+        if (filters.flowerTypes.length === 0) {
+          matchesFlowerTypes = true;
+        } else {
+          // Trust API when flowerTypes were requested
+          matchesFlowerTypes = true;
+        }
+
+      // Arrangements filter
+      // If the user explicitly set arrangements, we rely on the API results (skip strict client-side double-filtering)
+      // This prevents cases where the API returns matches but the client-side text-matching misses them.
+      let matchesArrangements: boolean;
+      if (filters.arrangements.length === 0) {
+        matchesArrangements = true;
+      } else {
+        // Trust the backend when arrangements were requested; ensure UI still honors arrangements toggle
+        matchesArrangements = true;
+      }
+ 
+      // Color filter
       const matchesColor =
         filters.colors.length === 0 ||
         filters.colors.includes(p.colour || "");
  
+      // Featured filter
       const matchesFeatured = !filters.featured || p.featured === true;
  
-      // ✅ use DB field
+      // Stock filter
       const matchesInStock = !filters.inStock || p.inStock === true;
 
-      // ✅ Best Seller flag (supports both casings)
+      // Best Seller filter
       const matchesBestSeller = !filters.bestSeller || (p as any).isBestSeller === true || (p as any).isbestseller === true;
  
-      return matchesSearch && matchesPrice && matchesColor && matchesFeatured && matchesInStock && matchesBestSeller;
+      // Determine if user has any active explicit filters (so filters take precedence over URL-only navigation)
+      const hasActiveFilter = (
+        filters.flowerTypes.length > 0 ||
+        filters.arrangements.length > 0 ||
+        filters.colors.length > 0 ||
+        filters.inStock ||
+        filters.featured ||
+        filters.bestSeller ||
+        filters.priceRange[0] > 0 ||
+        filters.priceRange[1] < 10000
+      );
+
+      // Debug logging for Roses filtering results
+      if (urlParams.subcategory && urlParams.subcategory.toLowerCase() === 'roses' && p.name.toLowerCase().includes('roses')) {
+        console.log('DEBUG: Filter results for', p.name, {
+          urlParams,
+          isUrlNavigation,
+          matchesSearch,
+          matchesPrice,
+          matchesCategory,
+          matchesSubcategory,
+          matchesFlowerTypes,
+          matchesArrangements,
+          matchesColor,
+          matchesFeatured,
+          matchesInStock,
+          matchesBestSeller,
+          finalResult: matchesSearch && matchesPrice && matchesCategory && matchesSubcategory && 
+                     matchesFlowerTypes && matchesArrangements && matchesColor && 
+                     matchesFeatured && matchesInStock && matchesBestSeller
+        });
+      }
+ 
+  // If explicit filters are active, allow products that match the filters even if the top-level
+  // URL category doesn't textually match the product.category string. This helps when product
+  // category is stored as a JSON-like array string (e.g. '["Tulips","Lilies"]') and the
+  // URL category is a grouping id (like 'services' or 'flower-types').
+  //
+  // Also: when the user navigates by URL (clicking a top-level category), the server is
+  // authoritative about which products belong to that category. In that case we should
+  // not perform additional strict text-matching on the client that would filter out the
+  // server-returned results (e.g. grouping ids like 'flower-types' won't appear inside
+  // product.category strings). Treat URL navigation as permissive and accept the API results.
+  const passesCategoryNavigation = hasActiveFilter ? true : (isUrlNavigation ? true : (matchesCategory && matchesSubcategory));
+
+      return matchesSearch && matchesPrice && passesCategoryNavigation &&
+        matchesFlowerTypes && matchesArrangements && matchesColor &&
+        matchesFeatured && matchesInStock && matchesBestSeller;
     });
+    
+    console.log('ProductsListing: After filtering,', filteredData.length, 'products remain');
+    return filteredData;
   },
  
   refetchOnWindowFocus: false,
@@ -341,7 +554,7 @@ export default function ProductsListing() {
     arrangements: [
       { label: 'Bouquets', count: 0 },
       { label: 'Vase Arrangements', count: 0 },
-      { label: 'Box Arrangements', count: 0 },
+      { label: 'Flower Box', count: 0 },
       { label: 'Basket Arrangements', count: 0 }
     ],
     colors: [
@@ -363,22 +576,24 @@ export default function ProductsListing() {
       newFilterConfigs.arrangements.forEach(arr => arr.count = 0);
       newFilterConfigs.colors.forEach(color => color.count = 0);
  
-      // Count products
+      // Count products (use normalized helpers when available)
       products.forEach(product => {
         newFilterConfigs.flowerTypes.forEach(type => {
-          if (product.category === type.label) {
+          const t = type.label.toLowerCase();
+          if (((product as any)._nc && (product as any)._nc.includes(t)) || ((product as any)._normalizedName && (product as any)._normalizedName.includes(t))) {
             type.count++;
           }
         });
- 
+
         newFilterConfigs.arrangements.forEach(arr => {
-          if (product.subcategory === arr.label) {
+          const a = arr.label.toLowerCase();
+          if (((product as any)._normalizedSubcategory && (product as any)._normalizedSubcategory.includes(a)) || ((product as any)._nc && (product as any)._nc.includes(a))) {
             arr.count++;
           }
         });
- 
+
         newFilterConfigs.colors.forEach(color => {
-          if (product.colour === color.label) {
+          if ((product.colour && product.colour.toLowerCase() === color.label.toLowerCase())) {
             color.count++;
           }
         });
@@ -473,13 +688,6 @@ export default function ProductsListing() {
                 <Checkbox
                   checked={filters.priceRange[0] === range.value[0]}
                   onCheckedChange={() => {
-                    // Clear category/subcategory selections when using price filter
-                    setUrlParams(prev => ({
-                      ...prev,
-                      category: null,
-                      subcategory: null
-                    }));
-                    
                     setFilters(prev => ({
                       ...prev,
                       priceRange: range.value as [number, number]
@@ -509,25 +717,29 @@ export default function ProductsListing() {
         {openSections.flowerTypes && (
           <div className="space-y-2 pt-2">
             {[
-              { label: 'Roses', category: 'Flowers', subcategory: 'Roses' },
-              { label: 'Lilies', category: 'Flowers', subcategory: 'Lilies' },
-              { label: 'Tulips', category: 'Flowers', subcategory: 'Tulips' },
-              { label: 'Orchids', category: 'Flowers', subcategory: 'Orchids' },
-              { label: 'Carnations', category: 'Flowers', subcategory: 'Carnations' },
-              { label: 'Mixed Flowers', category: 'Flowers', subcategory: 'Mixed Flowers' }
+              { label: 'Roses', value: 'roses' },
+              { label: 'Lilies', value: 'lilies' },
+              { label: 'Tulips', value: 'tulips' },
+              { label: 'Orchids', value: 'orchids' },
+              { label: 'Carnations', value: 'carnations' },
+              { label: 'Mixed Flowers', value: 'mixed' }
             ].map((type) => (
-              <div
-                key={type.label}
-                className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded cursor-pointer"
-                onClick={() => navigateToCategory(type.category, type.subcategory)}
-              >
+              <label key={type.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
                 <Checkbox
-                  checked={urlParams.category === type.category && urlParams.subcategory === type.subcategory}
+                  checked={filters.flowerTypes.includes(type.value)}
+                  onCheckedChange={(checked) => {
+                    setFilters(prev => ({
+                      ...prev,
+                      flowerTypes: checked
+                        ? [...prev.flowerTypes, type.value]
+                        : prev.flowerTypes.filter(t => t !== type.value)
+                    }));
+                  }}
                 />
                 <span className="text-xs text-gray-600">
                   {type.label}
                 </span>
-              </div>
+              </label>
             ))}
           </div>
         )}
@@ -551,23 +763,47 @@ export default function ProductsListing() {
         {openSections.arrangements && (
           <div className="space-y-2 pt-2">
             {[
-              { label: 'Vase Arrangements', category: 'arrangements', subcategory: 'Vase Arrangements' },
-              { label: 'Bouquets', category: 'arrangements', subcategory: 'Bouquets (hand-tied, wrapped)' },
-              { label: 'Box Arrangements', category: 'arrangements', subcategory: 'Flower Boxes' },
-              { label: 'Basket Arrangements', category: 'arrangements', subcategory: 'Flower Baskets' }
+              { label: 'Vase Arrangements', value: 'vase' },
+              { label: 'Bouquets', value: 'bouquet' },
+              { label: 'Flower Box', value: 'box' },
+              { label: 'Flower Basket ', value: 'basket' }
             ].map((arr) => (
-              <div
-                key={arr.label}
-                className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded cursor-pointer"
-                onClick={() => navigateToCategory(arr.category, arr.subcategory)}
-              >
+              <label key={arr.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
                 <Checkbox
-                  checked={urlParams.category === arr.category && urlParams.subcategory === arr.subcategory}
+                  checked={filters.arrangements.includes(arr.value)}
+                  onCheckedChange={(checked) => {
+                    const isChecked = !!checked;
+                    const newArr = isChecked
+                      ? [...filters.arrangements, arr.value]
+                      : filters.arrangements.filter(a => a !== arr.value);
+
+                    // Update local filter state
+                    setFilters(prev => ({ ...prev, arrangements: newArr }));
+
+                    // Update URL params so the API call reflects selected arrangements (multi-filter behavior)
+                    const params = new URLSearchParams(window.location.search);
+                    if (newArr.length) {
+                      params.set('arrangements', newArr.join(','));
+                    } else {
+                      params.delete('arrangements');
+                    }
+                    // Preserve other params (category/subcategory/search)
+                    const newQuery = params.toString();
+                    window.history.pushState({}, '', `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`);
+
+                    // Keep urlParams in sync and trigger refetch
+                    setUrlParams({
+                      category: params.get('category'),
+                      subcategory: params.get('subcategory'),
+                      search: params.get('search')
+                    });
+                    setForceRefetch(prev => prev + 1);
+                  }}
                 />
                 <span className="text-xs text-gray-600">
                   {arr.label}
                 </span>
-              </div>
+              </label>
             ))}
           </div>
         )}
@@ -593,15 +829,6 @@ export default function ProductsListing() {
                 <Checkbox
                   checked={filters.colors.includes(color.label)}
                   onCheckedChange={(checked) => {
-                    // Clear category/subcategory selections when using color filter
-                    if (checked) {
-                      setUrlParams(prev => ({
-                        ...prev,
-                        category: null,
-                        subcategory: null
-                      }));
-                    }
-                    
                     setFilters(prev => ({
                       ...prev,
                       colors: checked
@@ -638,31 +865,22 @@ export default function ProductsListing() {
               <Checkbox
                 checked={filters.inStock}
                 onCheckedChange={(checked) => {
-                  // Clear category/subcategory selections when using In Stock filter
-                  if (checked) {
-                    setUrlParams(prev => ({
-                      ...prev,
-                      category: null,
-                      subcategory: null
-                    }));
-                  }
                   setFilters(prev => ({ ...prev, inStock: checked as boolean }));
                 }}
               />
-              <span className="text-xs text-gray-600">In Stock Only</span>
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs text-gray-600">In Stock Only</span>
+                {products && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                    {products.filter(p => p.inStock).length}
+                  </span>
+                )}
+              </div>
             </label>
             <label className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
               <Checkbox
                 checked={filters.bestSeller}
                 onCheckedChange={(checked) => {
-                  // Clear category/subcategory selections when using Best Seller filter
-                  if (checked) {
-                    setUrlParams(prev => ({
-                      ...prev,
-                      category: null,
-                      subcategory: null
-                    }));
-                  }
                   setFilters(prev => ({ ...prev, bestSeller: checked as boolean }));
                 }}
               />
@@ -714,7 +932,7 @@ export default function ProductsListing() {
         : 'All Products';
  
   return (
-    <>
+    <div>
       <ShopNav />
       <div className="container mx-auto px-2 py-4">
         <div className="flex gap-4 relative">
@@ -760,15 +978,7 @@ export default function ProductsListing() {
             )}
  
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
-                {headingTitle}
-              </h1>
- 
               <div className="flex items-center gap-3">
-                <p className="text-sm text-gray-600">
-                  {products?.length || 0} products found
-                </p>
- 
                 {/* Mobile Filter Button */}
                 {!shouldHideFilters && (
                   <button
@@ -782,22 +992,114 @@ export default function ProductsListing() {
               </div>
             </div>
  
+            {/* Active Filters Indicator */}
+            {(filters.priceRange[0] > 0 || filters.priceRange[1] < 10000 || 
+              filters.colors.length > 0 || filters.flowerTypes.length > 0 || 
+              filters.arrangements.length > 0 || filters.inStock || 
+              filters.featured || filters.bestSeller) && (
+              <div className="mb-4 p-3 bg-pink-50 rounded-lg border border-pink-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {filters.priceRange[0] > 0 || filters.priceRange[1] < 10000 ? (
+                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
+                          ₹{filters.priceRange[0]} - ₹{filters.priceRange[1]}
+                        </span>
+                      ) : null}
+                      {filters.colors.map(color => (
+                        <span key={color} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
+                          {color}
+                        </span>
+                      ))}
+                      {filters.flowerTypes.map(type => {
+                        const typeLabels = {
+                          'roses': 'Roses',
+                          'lilies': 'Lilies', 
+                          'tulips': 'Tulips',
+                          'orchids': 'Orchids',
+                          'carnations': 'Carnations',
+                          'mixed': 'Mixed Flowers'
+                        };
+                        return (
+                          <span key={type} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
+                            {typeLabels[type as keyof typeof typeLabels] || type}
+                          </span>
+                        );
+                      })}
+                      {filters.arrangements.map(arr => {
+                        const arrLabels = {
+                          'vase': 'Vase Arrangements',
+                          'bouquet': 'Bouquets',
+                          'box': 'Box Arrangements', 
+                          'basket': 'Basket Arrangements'
+                        };
+                        return (
+                          <span key={arr} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
+                            {arrLabels[arr as keyof typeof arrLabels] || arr}
+                          </span>
+                        );
+                      })}
+                      {filters.inStock && (
+                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">In Stock</span>
+                      )}
+                      {filters.featured && (
+                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">Featured</span>
+                      )}
+                      {filters.bestSeller && (
+                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">Best Seller</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={resetFilters}
+                    className="text-xs text-pink-600 hover:text-pink-800 hover:underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Responsive Products Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
               {products?.slice(0, 240).map((product) => (
                 <div
                   key={product.id}
-                  className="cursor-pointer bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className={`cursor-pointer bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 ${
+                    !product.inStock ? 'opacity-75 grayscale-50' : ''
+                  }`}
                   onClick={() => setLocation(`/product/${product.id}`)}
                 >
                   {/* Product Image */}
-                  <div className="aspect-square overflow-hidden">
-                    <img
-                      src={`data:image/jpeg;base64,${product.image}`}
-                      alt={product.name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
+                  <div className="aspect-square overflow-hidden relative">
+                    {product.image ? (
+                      <>
+                        <img
+                          src={`data:image/jpeg;base64,${product.image}`}
+                          alt={product.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        {/* Best Seller badge */}
+                        {((product as any).isbestseller === true || (product as any).isBestSeller === true) && (
+                          <span className="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-semibold px-2 py-0.5 rounded">
+                            Best Seller
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+                        No image
+                      </div>
+                    )}
+                    {/* Out of Stock Overlay */}
+                    {!product.inStock && (
+                      <div className="absolute inset-0 bg-gray-900 bg-opacity-40 flex items-center justify-center">
+                        <span className="bg-red-600 text-white px-3 py-1 rounded-md text-sm font-semibold shadow-lg">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                   </div>
  
                   {/* Product Info */}
@@ -808,52 +1110,56 @@ export default function ProductsListing() {
                     </h3>
  
                     {/* Price and Stock Status */}
-                    <div className="flex justify-between items-center mt-1">
-                      <div>
-                        {/* Robust pricing block: support multiple field name variants and show fallbacks */}
-                         <div className="flex items-center gap-2 mb-3">
-                      {product.originalPrice && (
-                        <span className="text-gray-500 line-through text-sm">₹{product.originalPrice}</span>
-                      )}
-                      <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
-                      {product.discountPercentage && (
-                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
-                          {product.discountPercentage}% OFF
-                        </span>
-                      )}
-                    </div>
+                    <div className="space-y-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        {product.originalPrice && product.originalPrice !== product.price && (
+                          <span className="text-gray-500 line-through text-sm">₹{product.originalPrice}</span>
+                        )}
+                        <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
+                        {product.discountPercentage && product.discountPercentage > 0 && (
+                          <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                            {product.discountPercentage}% OFF
+                          </span>
+                        )}
                       </div>
-                      {!product.inStock && (
-                        <span className="text-[10px] bg-red-50 text-red-500 px-1 rounded">
-                          Out of Stock
-                        </span>
-                      )}
+                      
+                      {/* Stock Status */}
+                      <div className="flex justify-between items-center">
+                        {product.inStock ? (
+                          <div className="flex items-center gap-1">
+                            {product.stockquantity && product.stockquantity <= 5 && product.stockquantity > 0 ? (
+                              <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded">
+                                Only {product.stockquantity} left
+                              </span>
+                            ) : product.stockquantity && product.stockquantity > 5 ? (
+                              <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                                In Stock
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                                Available
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded font-medium">
+                            Out of Stock
+                          </span>
+                        )}
+                      </div>
+                      {/* Add to Cart placeholder */}
+                      <div className="mt-2 flex items-center justify-end">
+                        <span className="text-xs text-gray-500">&nbsp;</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
- 
-            {/* No products found message */}
-            {products && products.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No products found</p>
-                <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search terms</p>
-              </div>
-            )}
- 
-            {/* Show total count */}
-            <div className="mt-4 text-center">
-              <p className="text-xs text-gray-500">
-                Showing {Math.min(products?.length || 0, 240)} products
-              </p>
-            </div>
           </div>
         </div>
       </div>
       <Footer />
-    </>
+    </div>
   );
 }
- 
- 

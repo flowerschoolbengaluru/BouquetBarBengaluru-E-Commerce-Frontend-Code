@@ -507,82 +507,69 @@ export default function SignUp() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        required
-                        className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
-                          fieldErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
-                        }`}
-                        placeholder="Create a strong password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        data-testid="input-password"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowPassword((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        data-testid="toggle-password-visibility"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {fieldErrors.password && (
-                      <p className="text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {fieldErrors.password}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Must be at least 6 characters with uppercase, lowercase letters and numbers
-                    </p>
-                  </div>
+               <div className="space-y-2">
+  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+  <div className="relative flex items-center">
+    <Lock className="absolute left-3 h-4 w-4 text-gray-400" />
+    <Input
+      id="password"
+      name="password"
+      type={showPassword ? "text" : "password"}
+      required
+      className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+        fieldErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+      }`}
+      placeholder="Create a strong password"
+      value={formData.password}
+      onChange={handleInputChange}
+      data-testid="input-password"
+    />
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={() => setShowPassword((s) => !s)}
+      className="absolute right-2 h-8 w-8 flex items-center justify-center"
+      aria-label={showPassword ? "Hide password" : "Show password"}
+      data-testid="toggle-password-visibility"
+    >
+      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </Button>
+  </div>
+</div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        required
-                        className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
-                          fieldErrors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
-                        }`}
-                        placeholder="Confirm your password"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        data-testid="input-confirm-password"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowConfirmPassword((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
-                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                        data-testid="toggle-confirm-password-visibility"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {fieldErrors.confirmPassword && (
-                      <p className="text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {fieldErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
+
+                <div className="space-y-2">
+  <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">Confirm Password</Label>
+  <div className="relative flex items-center">
+    <Lock className="absolute left-3 h-4 w-4 text-gray-400" />
+    <Input
+      id="confirmPassword"
+      name="confirmPassword"
+      type={showConfirmPassword ? "text" : "password"}
+      required
+      className={`pl-10 pr-12 border-gray-200 focus:border-primary focus:ring-primary/20 ${
+        fieldErrors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+      }`}
+      placeholder="Confirm your password"
+      value={formData.confirmPassword}
+      onChange={handleInputChange}
+      data-testid="input-confirm-password"
+    />
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={() => setShowConfirmPassword((s) => !s)}
+      className="absolute right-2 h-8 w-8 flex items-center justify-center"
+      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+      data-testid="toggle-confirm-password-visibility"
+    >
+      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </Button>
+  </div>
+</div>
+
 
                   <Button 
                     type="submit" 
@@ -593,7 +580,7 @@ export default function SignUp() {
                     {signupMutation.isPending ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Account...
+                        Creating Account
                       </>
                     ) : (
                       "Create Account"

@@ -51,6 +51,15 @@ export async function apiRequest(
     body?: string;
   }
 ): Promise<Response> {
+  // Diagnostic: trace unexpected sign-in requests
+  try {
+    if (typeof url === 'string' && url.includes('/api/auth/signin')) {
+      console.log('[diag] apiRequest: /api/auth/signin called — options:', { method: options?.method, bodySnippet: options?.body ? options.body.slice(0, 100) : undefined });
+      console.trace();
+    }
+  } catch (e) {
+    // ignore diagnostic errors
+  }
   const defaultHeaders: Record<string, string> = {};
 
   // Add Content-Type header for requests with body

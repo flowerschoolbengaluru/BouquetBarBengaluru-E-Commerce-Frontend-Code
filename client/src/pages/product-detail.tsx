@@ -74,7 +74,8 @@ function CustomOptionPopup({ isOpen, onClose, productName, productId, user }: {
 
     // Send to backend
     try {
-      await apiRequest('/api/admin/custom-requests', {
+      console.log('Sending custom request...');
+      const response = await apiRequest('/api/admin/custom-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -86,14 +87,20 @@ function CustomOptionPopup({ isOpen, onClose, productName, productId, user }: {
           user_phone: user?.phone || ''
         })
       });
+      
+      console.log('Request successful, showing toast...');
+      
+      // Show toast notification on right side
       toast({
-        title: "Custom Request Submitted!",
-        description: "We'll get back to you soon with a custom quote.",
+        title: "🌸 Request Submitted Successfully!",
+        description: "Thank you! Your customization request has been received. Our team will review your requirements and call you back within 24 hours with a personalized quote.",
       });
+      console.log('Toast shown, clearing form...');
       setSelectedImages([]);
       setCustomText("");
       onClose();
     } catch (err) {
+      console.error('Request failed:', err);
       toast({ title: "Error", description: "Failed to submit custom request.", variant: "destructive" });
     }
   };
@@ -574,41 +581,30 @@ export default function ProductDetail() {
             {/* Product Images Section */}
             <div className="space-y-4 animate-in fade-in slide-in-from-left-8 duration-700">
               <div className="flex gap-4">
-                {/* Thumbnail Gallery - Left Side */}
+                {/* Thumbnail Gallery - Left Side (limit to 4 thumbnails) */}
                 <div className="w-24 space-y-2">
-                  <button
-                    onClick={() => setSelectedImage(product.image || null)}
-                    className={`w-full aspect-square rounded-lg overflow-hidden transition-all duration-300 ${
-                      selectedImage === product.image ? 'ring-2 ring-pink-500 scale-105' : 'ring-1 ring-gray-200 hover:ring-pink-300'
-                    } hover:scale-110`}
-                  >
-                    <img
-                      src={`data:image/jpeg;base64,${product.image}`}
-                      alt={`${product.name} main`}
-                      className="w-full h-full object-cover transition-opacity duration-300 hover:opacity-80"
-                      onLoad={() => setImageLoaded(true)}
-                    />
-                  </button>
-                  
-                  {/* Additional Images */}
-                  {[
+                  {([
+                    product.image,
                     product.imagefirst,
                     product.imagesecond,
                     product.imagethirder,
                     product.imagefoure,
                     product.imagefive
-                  ].filter(Boolean).map((image, index) => (
+                  ].filter(Boolean) as string[]).slice(0, 4).map((image, idx) => (
                     <button
-                      key={index}
+                      key={idx}
                       onClick={() => setSelectedImage(image || null)}
+                      onDoubleClick={() => { setSelectedImage(image || null); openZoomModal(); }}
+                      title="Click to select; double-click to open zoom"
                       className={`w-full aspect-square rounded-lg overflow-hidden transition-all duration-300 ${
                         selectedImage === image ? 'ring-2 ring-pink-500 scale-105' : 'ring-1 ring-gray-200 hover:ring-pink-300'
                       } hover:scale-110`}
                     >
                       <img
                         src={`data:image/jpeg;base64,${image}`}
-                        alt={`${product.name} view ${index + 1}`}
+                        alt={`${product.name} view ${idx + 1}`}
                         className="w-full h-full object-cover transition-opacity duration-300 hover:opacity-80"
+                        onLoad={() => setImageLoaded(true)}
                       />
                     </button>
                   ))}
@@ -703,13 +699,17 @@ export default function ProductDetail() {
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
-                      {product.originalprice && (
-                        <span className="text-gray-500 line-through text-sm">₹{product.originalprice}</span>
+                      {/* Show original price only if it exists and is different from current price */}
+                      {(product.originalprice || product.originalPrice) && 
+                       parseFloat(String(product.originalprice || product.originalPrice)) !== parseFloat(String(product.price)) && (
+                        <span className="text-gray-500 line-through text-sm">₹{product.originalprice || product.originalPrice}</span>
                       )}
                       <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
-                      {product.discount_percentage && (
+                      {/* Show discount badge only if discount percentage exists and is greater than 0 */}
+                      {(product.discount_percentage || product.discountPercentage) && 
+                       Number(product.discount_percentage || product.discountPercentage) > 0 && (
                         <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
-                          {product.discount_percentage}% OFF
+                          {product.discount_percentage || product.discountPercentage}% OFF
                         </span>
                       )}
                     </div>
@@ -897,26 +897,17 @@ export default function ProductDetail() {
                               {relatedProduct.name}
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
-                              {/* Original price (muted, struck-through) - support both originalPrice and originalprice */}
+                              {/* Original price (muted, struck-through) - only show if exists and different from current price */}
                               {(relatedProduct as any).originalPrice ?? (relatedProduct as any).originalprice ? (
                                 <span className="text-gray-500 line-through text-sm">₹{parseFloat(String((relatedProduct as any).originalPrice ?? (relatedProduct as any).originalprice)).toLocaleString()}</span>
-                              ) : (
-                                <span className="text-gray-400 text-sm">No orig</span>
-                              )}
+                              ) : null}
 
                               {/* Current / selling price (prominent) */}
                               <span className="text-sm font-bold text-pink-600">₹{Number(relatedProduct.price).toLocaleString()}</span>
 
-                              {/* Discount badge (green) or fallback */}
-                              {((relatedProduct as any).discountPercentage ?? (relatedProduct as any).discount_percentage) ? (
+                              {/* Discount badge (green) - only show if discount exists */}
+                              {((relatedProduct as any).discountPercentage ?? (relatedProduct as any).discount_percentage) > 0 && (
                                 <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">{(relatedProduct as any).discountPercentage ?? (relatedProduct as any).discount_percentage}% OFF</span>
-                              ) : (
-                                <span className="text-gray-400 text-xs">No %</span>
-                              )}
-
-                              {/* Offers flag fallback */}
-                              {!((relatedProduct as any).discounts_offers ?? (relatedProduct as any).discountsOffers) && (
-                                <span className="text-gray-400 text-xs">✗Offers</span>
                               )}
                             </div>
                           </div>
@@ -956,16 +947,16 @@ export default function ProductDetail() {
               />
             </div>
             
-            {/* Image navigation */}
+            {/* Image navigation - show up to 4 thumbnails in modal as well */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm">
-              {[
+              {([
                 product.image,
                 product.imagefirst,
                 product.imagesecond,
                 product.imagethirder,
                 product.imagefoure,
                 product.imagefive
-              ].filter(Boolean).map((image, index) => (
+              ].filter(Boolean) as string[]).slice(0, 4).map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(image || null)}

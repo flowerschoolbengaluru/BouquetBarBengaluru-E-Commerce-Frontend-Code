@@ -195,10 +195,10 @@ export default function OrderConfirmation() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Delivery charges note */}
               <div>
-                <h4 className="font-medium mb-2">Delivery Address</h4>
                 <p className="text-sm text-muted-foreground">
-                  {order.deliveryAddress || 'No delivery address specified'}
+                  <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
                 </p>
               </div>
               

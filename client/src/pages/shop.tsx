@@ -1017,9 +1017,7 @@ export default function Shop() {
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-8 md:py-12 px-4">
               <Gift className="w-16 h-16 md:w-20 md:h-20 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
-                {searchQuery || selectedCategory !== "all" ? "No products found" : "No products available"}
-              </h3>
+              
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
                 {searchQuery || selectedCategory !== "all" 
                   ? "Try adjusting your search or filters to find what you're looking for."
@@ -1217,8 +1215,9 @@ export default function Shop() {
                     <span>₹{totalPrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Delivery</span>
-                    <span className="text-green-600">Extra Delivery Charges</span>
+                   
+
+                    <span className="text-green-600">Delivery charges will vary depending on the porter or third-party delivery services</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
