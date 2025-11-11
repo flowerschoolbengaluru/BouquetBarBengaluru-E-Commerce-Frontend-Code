@@ -159,27 +159,11 @@ export default function OrderConfirmation() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>Total</span>
                 <span>{formatPrice(order.subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Payment Charges</span>
-                <span>{formatPrice(order.paymentCharges || 0)}</span>
-              </div>
-              {order.couponCode && (
-                <div className="flex justify-between text-green-600">
-                  <span className="flex items-center gap-1">
-                    <Tag className="w-4 h-4" />
-                    Discount ({order.couponCode})
-                  </span>
-                  <span>-{formatPrice(order.discountAmount || 0)}</span>
-                </div>
-              )}
-              <Separator />
-              <div className="flex justify-between text-lg font-semibold">
-                <span>Total</span>
-                <span>{formatPrice(order.total)}</span>
-              </div>
+             
+             
             </CardContent>
           </Card>
         </div>
