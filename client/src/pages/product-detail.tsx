@@ -479,6 +479,18 @@ export default function ProductDetail() {
   const quantity = cart.getItemQuantity(product.id);
 
   const handleAddToCart = () => {
+    // If user is not signed in, redirect to signin and show a toast
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add items to your cart.",
+        variant: "destructive",
+      });
+      const currentPath = window.location.pathname + window.location.search;
+      setLocation(`/signin?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
     cart.addToCart(product, 1);
   };
 

@@ -7,6 +7,8 @@ export type PaymentMethod = 'card' | 'upi' | 'netbanking' | 'cod' | 'qrcode';
 
 export interface PaymentData {
   selectedMethod: PaymentMethod | null;
+  // Store gateway transaction id when payment is completed via external gateway (Razorpay)
+  paymentTransactionId?: string;
   cardData?: {
     holderName: string;
     number: string;
@@ -1097,8 +1099,12 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         deliveryDate: undefined, // optional
         
         // Payment information
-        paymentMethod: mapPaymentMethod(cart.paymentData.selectedMethod),
-        paymentCharges: cart.paymentCharge,
+  paymentMethod: mapPaymentMethod(cart.paymentData.selectedMethod),
+  paymentCharges: cart.paymentCharge,
+  // include gateway transaction id if present (e.g., after Razorpay payment)
+  paymentTransactionId: (cart.paymentData as any)?.paymentTransactionId,
+  // if caller indicated the Razorpay flow completed, mark paymentStatus completed
+  ...(isRazorpayCompleted ? { paymentStatus: 'completed' } : {}),
         
         // Address information
         ...(userId ? {

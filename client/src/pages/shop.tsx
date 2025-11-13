@@ -34,22 +34,20 @@ import { apiRequest } from "@/lib/queryClient";
 import bouquetBarLogo from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import { type Product, type User } from "@shared/schema";
 import { useCart } from "@/hooks/cart-context";
-import FlowerCategory from "./FlowerCategory";
+import FlowerCategory, { useCategoryContext, CategoryProvider } from "./FlowerCategory";
 import PostFile from "./PostFileProps";
 import PostThree from "./PostThree";
 import VideoFile from "./VideoFile";
 import PostFileFive from "./PostFileFive";
 import PostFileSix from "./PostFileSix";
 
-export default function Shop() {
+function ShopContent() {
   const [animatedText, setAnimatedText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("name");
-  const [priceRange, setPriceRange] = useState([0, 10000]);
-  const [showInStockOnly, setShowInStockOnly] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const { setShowProductsFor } = useCategoryContext(); // Add this hook
+  const [showSubcategoryProducts, setShowSubcategoryProducts] = useState<string | null>(null);
+  const [showNameSearchResults, setShowNameSearchResults] = useState<string | null>(null);
 
   // Add search suggestions state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -72,25 +70,7 @@ export default function Shop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Handle URL parameters for category and search
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const categoryParam = urlParams.get('category');
-    const subcategoryParam = urlParams.get('subcategory');
-    const searchParam = urlParams.get('search');
 
-    if (categoryParam) {
-      setSelectedCategory(decodeURIComponent(categoryParam));
-    }
-    
-    if (subcategoryParam) {
-      setSelectedCategory(decodeURIComponent(subcategoryParam));
-    }
-
-    if (searchParam) {
-      setSearchQuery(decodeURIComponent(searchParam));
-    }
-  }, [location]);
 
   // Handle hash navigation when component loads
   useEffect(() => {
@@ -110,14 +90,71 @@ export default function Shop() {
     setShowMobileMenu(!showMobileMenu);
   };
 
-  // Mobile filters toggle
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
-  };
+
 
   // Get all items for search suggestions
   const getAllItems = () => {
     const allItems: Array<{ item: string, category: string, categoryId: string }> = [];
+
+    // Add main category suggestions first
+    const mainCategorySuggestions = [
+      { item: "Occasion Flowers", category: "Main Categories", categoryId: "occasion" },
+      { item: "Occasions", category: "Main Categories", categoryId: "occasion" },
+      { item: "Flower Arrangements", category: "Main Categories", categoryId: "arrangements" },
+      { item: "Arrangements", category: "Main Categories", categoryId: "arrangements" },
+      { item: "Flowers by Type", category: "Main Categories", categoryId: "flower-types" },
+      { item: "Flowers", category: "Main Categories", categoryId: "flower-types" },
+      { item: "Gift Combos", category: "Main Categories", categoryId: "gift-combo" },
+      { item: "Gifts", category: "Main Categories", categoryId: "gift-combo" },
+      { item: "Event Decorations", category: "Main Categories", categoryId: "event-decoration" },
+      { item: "Events", category: "Main Categories", categoryId: "event-decoration" },
+      { item: "Services", category: "Main Categories", categoryId: "services" },
+      { item: "Memorial Flowers", category: "Main Categories", categoryId: "memorial" },
+      { item: "Memorial", category: "Main Categories", categoryId: "memorial" },
+      { item: "Corporate Flowers", category: "Main Categories", categoryId: "corporate" },
+      { item: "Corporate", category: "Main Categories", categoryId: "corporate" }
+    ];
+
+    allItems.push(...mainCategorySuggestions);
+
+    // Add subcategory suggestions using actual category data
+    const subcategorySuggestions = [
+      // Popular occasions
+      { item: "Valentine's Day", category: "Occasions", categoryId: "valentine" },
+      { item: "Mother's Day", category: "Occasions", categoryId: "mothers-day" },
+      { item: "Father's Day", category: "Occasions", categoryId: "fathers-day" },
+      { item: "Birthday", category: "Occasions", categoryId: "birthday" },
+      { item: "Anniversary", category: "Occasions", categoryId: "anniversary" },
+      { item: "Graduation Day Flowers", category: "Occasions", categoryId: "graduation" },
+      { item: "Congratulations Flowers", category: "Occasions", categoryId: "congratulations" },
+      
+      // Popular flowers
+      { item: "Roses", category: "Flower Types", categoryId: "roses" },
+      { item: "Lilies", category: "Flower Types", categoryId: "lilies" },
+      { item: "Tulips", category: "Flower Types", categoryId: "tulips" },
+      { item: "Orchids", category: "Flower Types", categoryId: "orchids" },
+      { item: "Sunflowers", category: "Flower Types", categoryId: "sunflowers" },
+      { item: "Carnations", category: "Flower Types", categoryId: "carnations" },
+      
+      // Popular arrangements  
+      { item: "Bouquets (hand-tied, wrapped)", category: "Arrangements", categoryId: "bouquets" },
+      { item: "Flower Baskets", category: "Arrangements", categoryId: "baskets" },
+      { item: "Vase Arrangements", category: "Arrangements", categoryId: "vase-arrangements" },
+      { item: "Floral Centerpieces", category: "Arrangements", categoryId: "centerpieces" },
+      
+      // Popular gift combos
+      { item: "Flower with Chocolates", category: "Gift Combos", categoryId: "chocolates" },
+      { item: "Flower with Cakes", category: "Gift Combos", categoryId: "cakes" },
+      { item: "Flowers with Teddy Bears", category: "Gift Combos", categoryId: "teddy-bears" },
+      { item: "Flowers with Wine", category: "Gift Combos", categoryId: "wine" },
+      
+      // Popular events
+      { item: "Wedding Floral Decor", category: "Events", categoryId: "wedding" },
+      { item: "Birthday Decorations", category: "Events", categoryId: "birthday-decor" },
+      { item: "Corporate Event Flowers", category: "Events", categoryId: "corporate-events" }
+    ];
+
+    allItems.push(...subcategorySuggestions);
 
     // Define category mappings (your existing categories)
     const occasionCategories = [
@@ -215,15 +252,176 @@ export default function Shop() {
     filterSuggestions(query);
   };
 
+  // Main category mapping for search
+  const mainCategoryMapping = {
+    'occasion': ['occasion', 'occasions', 'celebration', 'special event', 'birthday', 'anniversary', 'wedding', 'valentine', 'valentines', 'mothers day', 'fathers day', 'graduation', 'congratulations', 'get well soon'],
+    'arrangements': ['arrangement', 'arrangements', 'bouquet', 'bouquets', 'basket', 'baskets', 'box', 'boxes', 'vase', 'vases', 'centerpiece', 'centerpieces', 'garland', 'garlands', 'wreath', 'wreaths'],
+    'flower-types': ['flowers', 'flower', 'rose', 'roses', 'lily', 'lilies', 'tulip', 'tulips', 'orchid', 'orchids', 'carnation', 'carnations', 'sunflower', 'sunflowers', 'mixed flowers', 'baby breath', 'chrysanthemum', 'hydrangea', 'anthurium', 'calla lilies', 'gerbera', 'gerberas', 'peony', 'peonies'],
+    'gift-combo': ['gift', 'gifts', 'combo', 'combos', 'hamper', 'hampers', 'chocolate', 'chocolates', 'cake', 'cakes', 'teddy', 'teddies', 'wine', 'fruits', 'cheese', 'nuts', 'greeting cards', 'customized gifts', 'perfume', 'jewelry', 'scented candles', 'personalized items'],
+    'event-decoration': ['event', 'events', 'venue', 'venues', 'decoration', 'decorations', 'wedding decor', 'party', 'parties', 'corporate event', 'stage', 'backdrop', 'car decoration', 'temple', 'pooja', 'entrance', 'table centerpieces', 'aisle', 'archway', 'ceiling', 'wall decorations', 'outdoor event'],
+    'services': ['service', 'services', 'delivery', 'same day', 'next day', 'subscription', 'subscriptions', 'message cards', 'international delivery', 'express delivery', 'scheduled delivery', 'workshop', 'workshops', 'consultation', 'florist services'],
+    'memorial': ['memorial', 'sympathy', 'funeral', 'condolence', 'remembrance', 'pet memorial', 'funeral wreaths', 'condolence bouquets', 'memorial sprays', 'casket arrangements', 'funeral home', 'church arrangements', 'graveside flowers', 'memorial service', 'living tributes'],
+    'corporate': ['corporate', 'office', 'business', 'reception', 'lobby', 'desk flowers', 'reception area', 'corporate gifting', 'brand themed', 'conference room', 'executive office', 'lobby displays', 'corporate accounts', 'volume discounts', 'branded arrangements']
+  };
+
+  // Subcategory mapping for specific product searches - using exact names from FlowerCategory data
+  const subcategoryMapping = [
+    // Occasion subcategories
+    "Father's Day", "Mother's Day", "Valentine's Day", "Self-Flowers (self-love / pampering)",
+    "Sister Love", "Brother Love", "Friendship Day", "Anniversary", "Birthday",
+    "Get Well Soon / Recovery Flowers", "I'm Sorry Flowers", "I Love You Flowers",
+    "Congratulations Flowers", "Graduation Day Flowers", "Promotion / Success Party Flowers",
+    "Proposal / Date Night Flowers", "Baby Showers Flowers", "New Baby Arrival Flowers",
+    "Housewarming Flowers", "Teacher's Day Flowers", "Children's Day Flowers",
+    "Farewell Flowers", "Retirement Flowers", "Women's Day Flowers", "Men's Day Flowers",
+    "Good Luck Flowers (before exams, interviews, journeys)", "Grandparent's Day Flowers",
+    "Pride Month Flowers",
+    
+    // Arrangement subcategories
+    "Bouquets (hand-tied, wrapped)", "Flower Baskets", "Flower Boxes", "Vase Arrangements",
+    "Floral Centerpieces", "Flower Garlands", "Lobby Arrangements", "Exotic Arrangements",
+    "Floral Cross Arrangement", "Baby's Breath Arrangement", "Gladiolus Arrangement",
+    "Wine Bottle Arrangements", "Floral Wreaths", "Custom Arrangements",
+    
+    // Flower type subcategories
+    "Tulips", "Lilies", "Carnations", "Orchids", "Sunflowers", "Mixed Flowers", "Roses",
+    "Baby's Breath", "Chrysanthemum", "Hydrangea", "Anthurium", "Calla Lilies",
+    "Gerberas", "Peonies",
+    
+    // Gift combo subcategories
+    "Flowers with Greeting Cards", "Flower with Fruits", "Floral Gift Hampers",
+    "Flower with Chocolates", "Flower with Cakes", "Flowers with Cheese",
+    "Flowers with Nuts", "Thank You", "Best Wishes", "Flowers with Customized Gifts",
+    "Flowers with Wine", "Flowers with Perfume", "Flowers with Jewelry",
+    "Flowers with Teddy Bears", "Flowers with Scented Candles", "Flowers with Personalized Items",
+    
+    // Event/Venue subcategories
+    "Wedding Floral Decor", "Corporate Event Flowers", "Party Flower Decorations",
+    "Stage & Backdrop Flowers", "Car Decoration Flowers", "Temple / Pooja Flowers",
+    "Birthday Decorations", "Entrance Arrangements", "Table Centerpieces",
+    "Aisle Decorations", "Archway Flowers", "Ceiling Installations",
+    "Wall Decorations", "Outdoor Event Flowers",
+    
+    // Service subcategories
+    "Same-Day Flower Delivery", "Next Day Delivery", "Customized Message Cards",
+    "Floral Subscriptions Weekly/monthly",
+    
+    // Memorial subcategories
+    "Pet Memorial Flowers", "Funeral Wreaths", "Condolence Bouquets",
+    "Remembrance Flowers", "Memorial Sprays", "Casket Arrangements", "Sympathy",
+    "Funeral Home Delivery", "Church Arrangements", "Graveside Flowers",
+    "Memorial Service Flowers", "Sympathy Gift Baskets", "Living Tributes",
+    "Memorial Donations",
+    
+    // Corporate subcategories
+    "Office Desk Flowers", "Reception Area Flowers", "Corporate Gifting Flowers",
+    "Brand-Themed Floral Arrangements", "Conference Room Flowers",
+    "Executive Office Arrangements", "Lobby Displays", "Corporate Accounts",
+    "Volume Discounts", "Regular Maintenance", "Custom Corporate Designs",
+    "Event Floristry Services", "Branded Arrangements", "Long-term Contracts",
+    
+    // Additional common search terms that should map to subcategories
+    "valentine", "valentines", "mothers day", "fathers day", "birthday flowers",
+    "anniversary flowers", "wedding flowers", "roses", "lilies", "tulips",
+    "orchids", "bouquet", "bouquets", "basket", "baskets", "chocolates", "cake", "cakes"
+  ];
+
+  // Function to detect main category from search query
+  const detectMainCategory = (searchQuery: string): string | null => {
+    const query = searchQuery.toLowerCase().trim();
+    for (const [categoryId, keywords] of Object.entries(mainCategoryMapping)) {
+      if (keywords.some(keyword => query.includes(keyword))) {
+        return categoryId;
+      }
+    }
+    return null;
+  };
+
+  // Function to detect subcategory from search query
+  const detectSubcategory = (searchQuery: string): string | null => {
+    const query = searchQuery.toLowerCase().trim();
+    
+    // First, try exact matches (case-insensitive)
+    const exactMatch = subcategoryMapping.find(subcategory => 
+      subcategory.toLowerCase() === query
+    );
+    if (exactMatch) return exactMatch;
+    
+    // Then try partial matches - search term contains subcategory name
+    const partialMatch = subcategoryMapping.find(subcategory => {
+      const subcatLower = subcategory.toLowerCase();
+      return query.includes(subcatLower) || subcatLower.includes(query);
+    });
+    if (partialMatch) return partialMatch;
+    
+    // Special handling for common variations
+    const variations: { [key: string]: string } = {
+      'valentine': "Valentine's Day",
+      'valentines': "Valentine's Day", 
+      'mothers day': "Mother's Day",
+      'mothers': "Mother's Day",
+      'fathers day': "Father's Day", 
+      'fathers': "Father's Day",
+      'birthday flowers': "Birthday",
+      'birthday': "Birthday",
+      'anniversary flowers': "Anniversary",
+      'anniversary': "Anniversary",
+      'wedding flowers': "Wedding Floral Decor",
+      'wedding': "Wedding Floral Decor",
+      'roses': "Roses",
+      'rose': "Roses",
+      'lilies': "Lilies",
+      'lily': "Lilies",
+      'tulips': "Tulips",
+      'tulip': "Tulips",
+      'orchids': "Orchids",
+      'orchid': "Orchids",
+      'bouquet': "Bouquets (hand-tied, wrapped)",
+      'bouquets': "Bouquets (hand-tied, wrapped)",
+      'basket': "Flower Baskets",
+      'baskets': "Flower Baskets",
+      'chocolates': "Flower with Chocolates",
+      'chocolate': "Flower with Chocolates",
+      'cake': "Flower with Cakes",
+      'cakes': "Flower with Cakes",
+      'sympathy': "Sympathy"
+    };
+    
+    const variationMatch = variations[query];
+    if (variationMatch) return variationMatch;
+    
+    return null;
+  };
+
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: { item: string, category: string, categoryId: string }) => {
     setShowSuggestions(false);
     setShowMobileMenu(false);
     
-    // Navigate to products page with search
-    const searchParams = new URLSearchParams();
-    searchParams.set('search', suggestion.item);
-    setLocation(`/products?${searchParams.toString()}`);
+    // Check if this is a subcategory search first
+    const detectedSubcategory = detectSubcategory(suggestion.item);
+    if (detectedSubcategory) {
+      // Clear other search results and show subcategory products
+      setShowProductsFor(null);
+      setShowNameSearchResults(null);
+      setShowSubcategoryProducts(detectedSubcategory);
+      return;
+    }
+    
+    // Check if this is a main category search
+    const detectedCategory = detectMainCategory(suggestion.item);
+    if (detectedCategory) {
+      // Clear other search results and show main category products
+      setShowSubcategoryProducts(null);
+      setShowNameSearchResults(null);
+      setShowProductsFor(detectedCategory);
+      return;
+    }
+    
+    // Otherwise treat as product name search
+    setShowProductsFor(null);
+    setShowSubcategoryProducts(null);
+    setShowNameSearchResults(suggestion.item);
   };
 
   // Handle search key down
@@ -232,10 +430,30 @@ export default function Shop() {
       setShowSuggestions(false);
       setShowMobileMenu(false);
       
-      // Navigate to products page with search
-      const searchParams = new URLSearchParams();
-      searchParams.set('search', searchQuery.trim());
-      setLocation(`/products?${searchParams.toString()}`);
+      // Check if this is a subcategory search first
+      const detectedSubcategory = detectSubcategory(searchQuery.trim());
+      if (detectedSubcategory) {
+        // Clear other search results and show subcategory products
+        setShowProductsFor(null);
+        setShowNameSearchResults(null);
+        setShowSubcategoryProducts(detectedSubcategory);
+        return;
+      }
+      
+      // Check if this is a main category search
+      const detectedCategory = detectMainCategory(searchQuery.trim());
+      if (detectedCategory) {
+        // Clear other search results and show main category products
+        setShowSubcategoryProducts(null);
+        setShowNameSearchResults(null);
+        setShowProductsFor(detectedCategory);
+        return;
+      }
+      
+      // Otherwise treat as product name search
+      setShowProductsFor(null);
+      setShowSubcategoryProducts(null);
+      setShowNameSearchResults(searchQuery.trim());
     }
   };
 
@@ -343,63 +561,16 @@ export default function Shop() {
     return product.inStock ?? true;
   };
 
-  // Filter and sort products based on search, category, price, and stock
+  // Show only best seller products
   const filteredProducts = (products as Product[])
     .filter((product: Product) => {
-      if (selectedCategory === "all") {
-        const rawBestSeller = (product as any).isBestSeller ?? (product as any).isbestseller;
-        const isBestSeller = typeof rawBestSeller === 'string'
-          ? ['true', '1', 'yes', 'enable'].includes(rawBestSeller.toLowerCase())
-          : !!rawBestSeller;
-        if (!isBestSeller) return false;
-        
-        const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
-        const matchesPrice = !isNaN(productPrice) &&
-          productPrice >= priceRange[0] &&
-          productPrice <= priceRange[1];
-        const matchesStock = !showInStockOnly || isProductInStock(product);
-        
-        return matchesPrice && matchesStock;
-      }
-      
-      const matchesSearch = !searchQuery || 
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        getCategoryString(product.category).toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesCategory = (() => {
-        if (!product.category) return false;
-        
-        const categoryString = getCategoryString(product.category).toLowerCase();
-        const selectedCategoryLower = selectedCategory.toLowerCase();
-        
-        return categoryString === selectedCategoryLower || 
-               categoryString.includes(selectedCategoryLower) ||
-               categoryString.split(',').some(cat => cat.trim() === selectedCategoryLower);
-      })();
-      
-      const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
-      const matchesPrice = !isNaN(productPrice) &&
-        productPrice >= priceRange[0] &&
-        productPrice <= priceRange[1];
-      const matchesStock = !showInStockOnly || isProductInStock(product);
-      
-      return matchesSearch && matchesCategory && matchesPrice && matchesStock;
+      const rawBestSeller = (product as any).isBestSeller ?? (product as any).isbestseller;
+      const isBestSeller = typeof rawBestSeller === 'string'
+        ? ['true', '1', 'yes', 'enable'].includes(rawBestSeller.toLowerCase())
+        : !!rawBestSeller;
+      return isBestSeller;
     })
-    .sort((a, b) => {
-      const priceA = typeof a.price === 'string' ? parseFloat(a.price) : a.price;
-      const priceB = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
-
-      switch (sortBy) {
-        case "price-low":
-          return priceA - priceB;
-        case "price-high":
-          return priceB - priceA;
-        case "name":
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // Handle add to cart with toast notification
   const handleAddToCart = (product: Product) => {
@@ -411,15 +582,7 @@ export default function Shop() {
     });
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedCategory("all");
-    setSortBy("name");
-    setPriceRange([0, 10000]);
-    setShowInStockOnly(false);
-    setShowFilters(false);
-  };
+
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -558,6 +721,9 @@ export default function Shop() {
   };
 
   const categories = [
+    "flowers", "occasion", "gifts", "arrangements", "wedding", "birthday", 
+    "anniversary", "roses", "lilies", "bouquets", "baskets", "chocolates", 
+    "celebrations", "corporate", "sympathy", "delivery", "services",
     "Birthday Flowers",
     "Anniversary Flowers",
     "Wedding Flowers",
@@ -754,7 +920,7 @@ export default function Shop() {
                 />
                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none w-3/4">
                   <span className="text-gray-500 font-medium text-sm truncate">
-                    {!searchQuery ? `Searching for ${animatedText}` : ""}
+                    {!searchQuery ? `Search for ${animatedText}` : ""}
                     {!searchQuery && <span className="animate-pulse font-bold">|</span>}
                   </span>
                 </div>
@@ -858,7 +1024,7 @@ export default function Shop() {
                   className="hidden sm:flex bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white transition-all duration-300 text-sm px-3 md:px-4 py-2"
                 >
                   <UserIcon className="w-4 h-4 mr-2" />
-                  Login
+              Log In
                 </Button>
               )}
             </div>
@@ -988,6 +1154,14 @@ export default function Shop() {
         <FlowerCategory />
       </div>
 
+      {/* Category Products Display */}
+      <CategoryProductsSection />
+      
+      {/* Subcategory Products Display */}
+      <SubcategoryProductsSection subcategory={showSubcategoryProducts} onClear={() => setShowSubcategoryProducts(null)} />
+      
+      {/* Product Name Search Results Display */}
+      <ProductNameSearchSection searchTerm={showNameSearchResults} onClear={() => setShowNameSearchResults(null)} />
      
       <div>
         <PostFile />
@@ -998,7 +1172,7 @@ export default function Shop() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4">
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <h2 className="text-xl md:text-3xl font-bold">
-              {selectedCategory === "all" ? "Best Seller" : `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Products`}
+              Best Seller Products
             </h2>
           </div>
 
@@ -1019,16 +1193,8 @@ export default function Shop() {
               <Gift className="w-16 h-16 md:w-20 md:h-20 mx-auto text-gray-400 mb-4" />
               
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                {searchQuery || selectedCategory !== "all" 
-                  ? "Try adjusting your search or filters to find what you're looking for."
-                  : "Check back later for new arrivals."
-                }
+                Check back later for new arrivals.
               </p>
-              {(searchQuery || selectedCategory !== "all") && (
-                <Button onClick={clearFilters} className="bg-gradient-to-r from-pink-500 to-purple-500">
-                  Clear Filters
-                </Button>
-              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
@@ -1054,15 +1220,31 @@ export default function Shop() {
                     
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-3">
-                      {product.originalprice && (
-                        <span className="text-gray-500 line-through text-sm">₹{product.originalprice}</span>
-                      )}
-                      <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
-                      {product.discount_percentage && (
-                        <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
-                          {product.discount_percentage}% OFF
-                        </span>
-                      )}
+                      {/* Determine if this product has discounts enabled. The field can be boolean or string in different records. */}
+                      {(() => {
+                        const discountsField = (product as any).discounts_offers ?? (product as any).discountsOffers;
+                        if (typeof discountsField === 'boolean' ? discountsField : typeof discountsField === 'string' ? ['true','1','yes','enable'].includes(discountsField.toLowerCase()) : Boolean(discountsField)) {
+                          // show original price only when discounts are enabled
+                          if ((product.originalprice || (product as any).originalPrice) && parseFloat(String(product.originalprice ?? (product as any).originalPrice)) !== parseFloat(String(product.price ?? 0))) {
+                            return (
+                              <>
+                                <span className="text-gray-500 line-through text-sm">₹{parseFloat(String(product.originalprice ?? (product as any).originalPrice)).toLocaleString()}</span>
+                                <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                                {((product.discount_percentage ?? (product as any).discountPercentage) && Number(product.discount_percentage ?? (product as any).discountPercentage) > 0) && (
+                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                                    {product.discount_percentage ?? (product as any).discountPercentage}% OFF
+                                  </span>
+                                )}
+                              </>
+                            );
+                          }
+                        }
+
+                        // Default: show only the selling price formatted
+                        return (
+                          <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                        );
+                      })()}
                     </div>
                     <h3
                       className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base line-clamp-2"
@@ -1257,5 +1439,568 @@ export default function Shop() {
       {/* Footer */}
       <Footer />
     </div>
+  );
+}
+
+// Category Products Section Component
+const CategoryProductsSection: React.FC = () => {
+  const { showProductsFor } = useCategoryContext();
+  const [, setLocation] = useLocation();
+  const { addToCart, isInCart, getItemQuantity } = useCart();
+  const { toast } = useToast();
+  
+  // Fetch products for the selected category using new API endpoint
+  const { data: categoryData, isLoading: productsLoading } = useQuery<{
+    category: string;
+    totalProducts: number;
+    allProducts: Product[];
+    subcategories: Record<string, Product[]>;
+  }>({
+    queryKey: ['main-category-products', showProductsFor],
+    queryFn: async () => {
+      if (!showProductsFor) return { category: '', totalProducts: 0, allProducts: [], subcategories: {} };
+      
+      const response = await apiRequest(`/api/products/main_category/${encodeURIComponent(showProductsFor)}`);
+      const data = await response.json();
+      return data || { category: '', totalProducts: 0, allProducts: [], subcategories: {} };
+    },
+    enabled: !!showProductsFor
+  });
+  
+  // Extract products list for display
+  const categoryProducts = categoryData?.allProducts || [];
+  
+  // Get category data
+  const allCategories = [
+    { id: "occasion", name: "Occasion" },
+    { id: "arrangements", name: "Arrangement" },
+    { id: "flower-types", name: "Flowers" },
+    { id: "gift-combo", name: "Gifts" },
+    { id: "event-decoration", name: "Event/Venue" },
+    { id: "services", name: "Services" },
+    { id: "memorial", name: "Memorial/Sympathy" },
+    { id: "corporate", name: "Corporate" }
+  ];
+  
+  // Helper to check if product is actually in stock
+  const isProductInStock = (product: Product): boolean => {
+    const stockQty = (product as any).stockquantity ?? (product as any).stockQuantity ?? product.quantity;
+    if (typeof stockQty === 'number' && stockQty <= 0) return false;
+    if (typeof product.inStock === 'boolean' && product.inStock === false) return false;
+    if (typeof stockQty === 'number' && stockQty > 0) return true;
+    return product.inStock ?? true;
+  };
+
+  // Handle add to cart with toast notification
+  const handleAddToCart = (product: Product) => {
+    addToCart(product, 1);
+    toast({
+      title: "Added to Cart! 🛒",
+      description: `${product.name} has been added to your cart.`,
+      duration: 2000,
+    });
+  };
+
+  // Deterministic pseudo-random rating based on product id
+  const getRatingForProduct = (id: string): number => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    const normalized = Math.abs(hash) % 50;
+    return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
+  };
+  
+  // Early return after all hooks are declared
+  if (!showProductsFor) return null;
+  
+  const selectedCategory = allCategories.find(cat => cat.id === showProductsFor);
+  if (!selectedCategory) return null;
+  
+  return (
+    <section className="py-6 md:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            {selectedCategory.name} Products
+          </h2>
+
+        </div>
+        
+        {productsLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {[...Array(8)].map((_, index) => (
+              <Card key={index} className="overflow-hidden">
+                <div className="w-full h-40 md:h-64 bg-gray-200 animate-pulse"></div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : categoryProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">No products found in this category</p>
+          </div>
+        ) : (
+          // Display all products in a single flat grid without subcategory grouping
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {categoryProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                <div className="relative">
+                  <img
+                    src={`data:image/jpeg;base64,${product.image}`}
+                    alt={product.name}
+                    className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  />
+                  {!isProductInStock(product) && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Badge variant="secondary" className="bg-white text-black text-xs">
+                        Out of Stock
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                  </div>
+                  
+                  <h3
+                    className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base line-clamp-2"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  >
+                    {product.name}
+                  </h3>
+                  
+                  <div className="flex items-center mb-2">
+                    {(() => {
+                      const rating = getRatingForProduct(product.id);
+                      const fullStars = Math.floor(rating);
+                      const stars = [] as JSX.Element[];
+                      for (let i = 0; i < 5; i++) {
+                        stars.push(
+                          <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-1">
+                          <div className="flex">{stars}</div>
+                          <span className="text-xs text-gray-600 ml-1">{rating}</span>
+                        </div>
+                      );
+                    })()} 
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 text-xs"
+                      onClick={() => setLocation(`/product/${product.id}`)}
+                    >
+                      Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={!isProductInStock(product)}
+                      className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                    >
+                      {isInCart(product.id) ?
+                        `+${getItemQuantity(product.id)}` :
+                        (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
+                      }
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+// ProductNameSearchSection component for displaying product name search results
+const ProductNameSearchSection: React.FC<{ searchTerm: string | null; onClear: () => void }> = ({ searchTerm, onClear }) => {
+  const { data: nameSearchData, isLoading: nameSearchLoading } = useQuery<{
+    searchTerm: string;
+    totalProducts: number;
+    products: Product[];
+  }>({
+    queryKey: [`/api/products/search?name=${encodeURIComponent(searchTerm || '')}`],
+    enabled: !!searchTerm,
+  });
+  
+  // Extract products array from the response
+  const nameSearchProducts = nameSearchData?.products || [];
+
+  const {
+    addToCart,
+    isLoading,
+    isInCart,
+    getItemQuantity,
+    updateQuantity,
+    removeFromCart
+  } = useCart();
+
+  const [, setLocation] = useLocation();
+
+  // Function to check if product is in stock
+  const isProductInStock = (product: Product) => {
+    // Check both possible stock field names
+    const stock = product.quantity || (product as any).stockquantity || (product as any).stockQuantity;
+    return stock > 0;
+  };
+
+  // Function to get rating for a product
+  const getRatingForProduct = (productId: string | number) => {
+    // You can implement actual rating logic here
+    // For now, return a default rating
+    return 4.2;
+  };
+
+  const handleAddToCart = (product: Product) => {
+    if (!isProductInStock(product)) {
+      return;
+    }
+
+    if (isInCart(product.id)) {
+      const currentQuantity = getItemQuantity(product.id);
+      updateQuantity(product.id, currentQuantity + 1);
+    } else {
+      addToCart(product);
+    }
+  };
+
+  if (!searchTerm) return null;
+
+  return (
+    <section className="py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Search Results for "{searchTerm}"
+          </h2>
+          <Button 
+            variant="outline" 
+            onClick={onClear}
+            className="text-pink-600 border-pink-600 hover:bg-pink-50"
+          >
+            Clear Search
+          </Button>
+        </div>
+        
+        {nameSearchLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {[...Array(8)].map((_, index) => (
+              <Card key={index} className="overflow-hidden">
+                <div className="w-full h-40 md:h-64 bg-gray-200 animate-pulse"></div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : nameSearchProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-600 text-lg">No products found matching "{searchTerm}"</p>
+            <Button 
+              className="mt-4 bg-gradient-to-r from-pink-500 to-purple-500"
+              onClick={onClear}
+            >
+              Browse All Products
+            </Button>
+          </div>
+        ) : (
+          // Display all matching products in a single flat grid
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {nameSearchProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
+                <div className="relative">
+                  <img
+                    src={`data:image/jpeg;base64,${product.image}`}
+                    alt={product.name}
+                    className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  />
+                  {!isProductInStock(product) && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Badge variant="secondary" className="bg-white text-black text-xs">
+                        Out of Stock
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                  </div>
+                  
+                  <h3
+                    className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base line-clamp-2"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  >
+                    {product.name}
+                  </h3>
+                  
+                  <div className="flex items-center mb-2">
+                    {(() => {
+                      const rating = getRatingForProduct(product.id);
+                      const fullStars = Math.floor(rating);
+                      const stars = [] as JSX.Element[];
+                      for (let i = 0; i < 5; i++) {
+                        stars.push(
+                          <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-1">
+                          <div className="flex">{stars}</div>
+                          <span className="text-xs text-gray-600 ml-1">{rating}</span>
+                        </div>
+                      );
+                    })()} 
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 text-xs"
+                      onClick={() => setLocation(`/product/${product.id}`)}
+                    >
+                      Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={!isProductInStock(product)}
+                      className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                    >
+                      {isInCart(product.id) ?
+                        `+${getItemQuantity(product.id)}` :
+                        (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
+                      }
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+// Subcategory Products Section Component
+const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear: () => void }> = ({ subcategory, onClear }) => {
+  const [, setLocation] = useLocation();
+  const { addToCart, isInCart, getItemQuantity } = useCart();
+  const { toast } = useToast();
+  
+  // Fetch products for the selected subcategory using new API endpoint
+  const { data: subcategoryData, isLoading: productsLoading } = useQuery<{
+    subcategory: string;
+    totalProducts: number;
+    products: Product[];
+  }>({
+    queryKey: ['subcategory-products', subcategory],
+    queryFn: async () => {
+      if (!subcategory) return { subcategory: '', totalProducts: 0, products: [] };
+      
+      const response = await apiRequest(`/api/products/subcategory/${encodeURIComponent(subcategory)}`);
+      const data = await response.json();
+      return data || { subcategory: '', totalProducts: 0, products: [] };
+    },
+    enabled: !!subcategory
+  });
+  
+  // Extract products list for display
+  const subcategoryProducts = subcategoryData?.products || [];
+  
+  // Helper to check if product is actually in stock
+  const isProductInStock = (product: Product): boolean => {
+    const stockQty = (product as any).stockquantity ?? (product as any).stockQuantity ?? product.quantity;
+    if (typeof stockQty === 'number' && stockQty <= 0) return false;
+    if (typeof product.inStock === 'boolean' && product.inStock === false) return false;
+    if (typeof stockQty === 'number' && stockQty > 0) return true;
+    return product.inStock ?? true;
+  };
+
+  // Handle add to cart with toast notification
+  const handleAddToCart = (product: Product) => {
+    addToCart(product, 1);
+    toast({
+      title: "Added to Cart! 🛒",
+      description: `${product.name} has been added to your cart.`,
+      duration: 2000,
+    });
+  };
+
+  // Deterministic pseudo-random rating based on product id
+  const getRatingForProduct = (id: string): number => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    const normalized = Math.abs(hash) % 50;
+    return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
+  };
+  
+  // Early return after all hooks are declared
+  if (!subcategory) return null;
+  
+  return (
+    <section className="py-6 md:py-8 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
+        <div className="mb-6 md:mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 capitalize">
+              {subcategory} Products
+            </h2>
+           
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={onClear}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Clear
+          </Button>
+        </div>
+        
+        {productsLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {[...Array(8)].map((_, index) => (
+              <Card key={index} className="overflow-hidden">
+                <div className="w-full h-40 md:h-64 bg-gray-200 animate-pulse"></div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : subcategoryProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-600 text-lg">No products found for "{subcategory}"</p>
+            <Button 
+              className="mt-4 bg-gradient-to-r from-pink-500 to-purple-500"
+              onClick={onClear}
+            >
+              Browse All Products
+            </Button>
+          </div>
+        ) : (
+          // Display all products in a single flat grid
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {subcategoryProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
+                <div className="relative">
+                  <img
+                    src={`data:image/jpeg;base64,${product.image}`}
+                    alt={product.name}
+                    className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  />
+                  {!isProductInStock(product) && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Badge variant="secondary" className="bg-white text-black text-xs">
+                        Out of Stock
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                  </div>
+                  
+                  <h3
+                    className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm md:text-base line-clamp-2"
+                    onClick={() => setLocation(`/product/${product.id}`)}
+                  >
+                    {product.name}
+                  </h3>
+                  
+                  <div className="flex items-center mb-2">
+                    {(() => {
+                      const rating = getRatingForProduct(product.id);
+                      const fullStars = Math.floor(rating);
+                      const stars = [] as JSX.Element[];
+                      for (let i = 0; i < 5; i++) {
+                        stars.push(
+                          <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-1">
+                          <div className="flex">{stars}</div>
+                          <span className="text-xs text-gray-600 ml-1">{rating}</span>
+                        </div>
+                      );
+                    })()} 
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 text-xs"
+                      onClick={() => setLocation(`/product/${product.id}`)}
+                    >
+                      Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={!isProductInStock(product)}
+                      className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                    >
+                      {isInCart(product.id) ?
+                        `+${getItemQuantity(product.id)}` :
+                        (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
+                      }
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+// Main Shop component wrapped with CategoryProvider
+export default function Shop() {
+  return (
+    <CategoryProvider>
+      <ShopContent />
+    </CategoryProvider>
   );
 }

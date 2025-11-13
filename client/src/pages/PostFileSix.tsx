@@ -80,7 +80,7 @@ const PostFileSix = () => {
 
   const handleProductClick = (product: typeof products[0]) => {
     // Navigate to ProductsListing with category and subcategory parameters
-    setLocation(`/products?category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(product.subcategory)}`);
+    setLocation(`/products?main_category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(product.subcategory)}`);
   };
 
   return (

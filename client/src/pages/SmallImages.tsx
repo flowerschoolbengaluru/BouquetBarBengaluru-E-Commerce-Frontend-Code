@@ -83,7 +83,7 @@ const SmallImages: React.FC<SmallImagesProps> = () => {
 
   const handleImageClick = (item: ImageItem) => {
     // Navigate to ProductsListing with category and subcategory parameters
-    setLocation(`/products?category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`);
+    setLocation(`/products?main_category=${encodeURIComponent(item.category)}&subcategory=${encodeURIComponent(item.subcategory)}`);
   };
 
   return (

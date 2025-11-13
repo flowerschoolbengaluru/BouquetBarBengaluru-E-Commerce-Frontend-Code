@@ -75,7 +75,7 @@ const PostFileFour = () => {
 
   const handleProductClick = (product: typeof bestSellers[0]) => {
   
-    setLocation(`/products?category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(product.subcategory)}`);
+    setLocation(`/products?main_category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(product.subcategory)}`);
   };
 
   return (

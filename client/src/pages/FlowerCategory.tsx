@@ -1,7 +1,29 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, createContext, useContext } from "react";
 import PopupForm from "../components/PopupForm";
 import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+// Category Context
+const CategoryContext = createContext<{
+  showProductsFor: string | null;
+  setShowProductsFor: (categoryId: string | null) => void;
+  allCategories: Category[];
+}>({ showProductsFor: null, setShowProductsFor: () => {}, allCategories: [] });
+
+export const useCategoryContext = () => useContext(CategoryContext);
+
+export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [showProductsFor, setShowProductsFor] = useState<string | null>(null);
+  
+  return (
+    <CategoryContext.Provider value={{ showProductsFor, setShowProductsFor, allCategories }}>
+      {children}
+    </CategoryContext.Provider>
+  );
+};
 import BirthdayImg from "../CategoryImages/BoxArrangements.jpg";
 import BouquetImg from "../CategoryImages/DoorFlower.jpg";
 import TulipsImg from "../CategoryImages/Teddy.jpg";
@@ -12,6 +34,21 @@ import MemorialImg from "../CategoryImages/MixedFlower.jpg";
 import CorporateImg from "../CategoryImages/Roses.jpg";
 import PostFile from "./PostFileProps";
 import { useLocation } from "wouter";
+
+interface Product {
+  id: string;
+  name: string;
+  price: string;
+  discountPrice?: string;
+  discounts_offers?: boolean;
+  image?: string;
+  images?: string[];
+  inStock: boolean;
+  featured?: boolean;
+  main_category?: string[];
+  subcategory?: string[];
+  description?: string;
+}
 
 interface SubCategoryGroup {
   title: string;
@@ -297,6 +334,70 @@ const allCategories: Category[] = [
   }
 ];
 
+// Product Card Component
+const ProductCard: React.FC<{ product: Product; onProductClick: (productId: string) => void }> = ({ product, onProductClick }) => {
+  const hasDiscount = product.discounts_offers && product.discountPrice && parseFloat(product.discountPrice) < parseFloat(product.price);
+  const discountPercentage = hasDiscount 
+    ? Math.round(((parseFloat(product.price) - parseFloat(product.discountPrice!)) / parseFloat(product.price)) * 100)
+    : 0;
+
+  return (
+    <Card 
+      className="group cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden"
+      onClick={() => onProductClick(product.id)}
+    >
+      <div className="relative">
+        <img
+          src={product.image ? `data:image/jpeg;base64,${product.image}` : (product.images && product.images[0]) ? `data:image/jpeg;base64,${product.images[0]}` : '/placeholder-flower.jpg'}
+          alt={product.name}
+          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={(e) => {
+            e.currentTarget.src = '/placeholder-flower.jpg';
+          }}
+        />
+        {hasDiscount && (
+          <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+            {discountPercentage}% OFF
+          </div>
+        )}
+        {product.featured && (
+          <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+            Featured
+          </div>
+        )}
+        {!product.inStock && (
+          <div className="absolute inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
+            <span className="bg-red-500 text-white px-3 py-1 rounded text-sm font-bold">Out of Stock</span>
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-pink-600 transition-colors">
+          {product.name}
+        </h3>
+        
+        <div className="flex items-center gap-2 mb-2">
+          {hasDiscount ? (
+            <>
+              <span className="text-lg font-bold text-pink-600">₹{product.discountPrice}</span>
+              <span className="text-sm text-gray-500 line-through">₹{product.price}</span>
+            </>
+          ) : (
+            <span className="text-lg font-bold text-pink-600">₹{product.price}</span>
+          )}
+        </div>
+        
+        {product.description && (
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {product.description}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 // Desktop Category Card Component
 const CategoryCard: React.FC<{ 
   category: Category | null; 
@@ -518,7 +619,8 @@ const MobileMenu: React.FC<{
 // Simple Tablet View - Just category buttons
 const SimpleTabletView: React.FC<{
   onCategoryClick: (categoryId: string) => void;
-}> = ({ onCategoryClick }) => {
+  showProductsFor: string | null;
+}> = ({ onCategoryClick, showProductsFor }) => {
   return (
     <div className="px-4 mx-auto max-w-4xl">
       <div className="flex flex-wrap justify-center gap-3 md:gap-4">
@@ -526,7 +628,11 @@ const SimpleTabletView: React.FC<{
           <button
             key={category.id}
             onClick={() => onCategoryClick(category.id)}
-            className="px-4 md:px-6 py-3 md:py-4 bg-white border border-gray-200 rounded-lg text-sm md:text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50 hover:border-pink-300 transition-all duration-200 shadow-sm whitespace-nowrap"
+            className={`px-4 md:px-6 py-3 md:py-4 border rounded-lg text-sm md:text-base font-medium transition-all duration-200 shadow-sm whitespace-nowrap ${
+              showProductsFor === category.id
+                ? 'bg-pink-50 text-pink-600 border-pink-300'
+                : 'bg-white text-gray-700 border-gray-200 hover:text-pink-600 hover:bg-pink-50 hover:border-pink-300'
+            }`}
           >
             {category.name}
           </button>
@@ -546,6 +652,7 @@ const FlowerCategory: React.FC = () => {
   const [popupSubcategory, setPopupSubcategory] = useState<string>("");
   const [thankYouMessage, setThankYouMessage] = useState<string>("");
   const [selectedSubcategories, setSelectedSubcategories] = useState<Set<string>>(new Set()); // Track multiple selections
+  const { showProductsFor, setShowProductsFor } = useCategoryContext();
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [, setLocation] = useLocation();
@@ -559,6 +666,8 @@ const FlowerCategory: React.FC = () => {
       setSelectedSubcategories(new Set(subcategories));
     }
   }, []);
+
+
 
   // Find the active category data
   const activeCategoryData = allCategories.find(cat => cat.id === activeCategory) || null;
@@ -626,21 +735,22 @@ const FlowerCategory: React.FC = () => {
       setSelectedSubcategories(newSelected);
       
       // Navigate to the selected subcategory
-      const url = `/products?category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
+      const url = `/products?main_category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
       window.location.href = url;
       return;
     }
     
     // Single selection for other categories
-    window.location.href = `/products?category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
+    window.location.href = `/products?main_category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    // Navigate to the products page using only the top-level category.
-    // Avoid including a long comma-separated `subcategory` query string
-    // which was causing the UI to display all subcategory names.
-    const url = `/products?category=${encodeURIComponent(categoryId.toLowerCase())}`;
-    window.location.href = url;
+    // Toggle products display for the clicked category
+    if (showProductsFor === categoryId) {
+      setShowProductsFor(null); // Hide if already showing
+    } else {
+      setShowProductsFor(categoryId); // Show products
+    }
   };
 
   const handleMouseEnter = (categoryId: string, event: React.MouseEvent) => {
@@ -735,9 +845,13 @@ const FlowerCategory: React.FC = () => {
                 onClick={() => handleCategoryClick(category.id)}
               >
                 {/* Main tab */}
-                <button className="flex items-center gap-1 px-3 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50 transition-all duration-200 rounded-lg whitespace-nowrap">
+                <button className={`flex items-center gap-1 px-3 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium transition-all duration-200 rounded-lg whitespace-nowrap ${
+                  showProductsFor === category.id 
+                    ? 'text-pink-600 bg-pink-50' 
+                    : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
+                }`}>
                   {category.name}
-                  {activeCategory === category.id ? (
+                  {showProductsFor === category.id ? (
                     <ChevronUp className="w-3 h-3 lg:w-4 lg:h-4 transition-transform duration-200" />
                   ) : (
                     <ChevronDown className="w-3 h-3 lg:w-4 lg:h-4 transition-transform duration-200" />
@@ -776,7 +890,7 @@ const FlowerCategory: React.FC = () => {
 
         {/* Simple Tablet View - Just category buttons */}
         <div className="hidden md:block xl:hidden py-4">
-          <SimpleTabletView onCategoryClick={handleCategoryClick} />
+          <SimpleTabletView onCategoryClick={handleCategoryClick} showProductsFor={showProductsFor} />
         </div>
       </div>
 

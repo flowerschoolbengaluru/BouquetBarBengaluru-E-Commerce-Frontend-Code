@@ -45,7 +45,7 @@ import bouquetBarLogo from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.pn
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { loadRazorpay, createRazorpayOrder, verifyRazorpayPayment, type RazorpayPaymentOptions } from "@/lib/razorpay";
+import { loadRazorpay, createRazorpayOrder, verifyRazorpayPayment, getPaymentStatus, type RazorpayPaymentOptions } from "@/lib/razorpay";
 
 interface CartItem {
   id: string;
@@ -1428,6 +1428,15 @@ export default function Checkout() {
         theme: {
           color: '#ec4899' // Pink theme to match your brand
         },
+        config: {
+          display: {
+            hide: [
+              {
+                method: 'emi'
+              }
+            ]
+          }
+        },
         handler: async (response: any) => {
           try {
             // Verify payment
@@ -1443,10 +1452,34 @@ export default function Checkout() {
                 description: "Processing your order...",
               });
               
-              // Update payment data to reflect successful payment
+              // Determine payment method from verification response (or fetch if missing)
+              let gatewayMethod = verificationResult.payment?.method || null;
+              try {
+                if (!gatewayMethod) {
+                  // fallback: fetch payment status directly
+                  const statusResp = await getPaymentStatus(response.razorpay_payment_id);
+                  gatewayMethod = statusResp.payment?.method || null;
+                }
+              } catch (e) {
+                console.error('Failed to fetch payment status after verification:', e);
+              }
+
+              const mapGatewayToSelected = (m: string | null) => {
+                if (!m) return 'card';
+                const mm = m.toLowerCase();
+                if (mm.includes('upi')) return 'upi';
+                if (mm.includes('netbanking')) return 'netbanking';
+                if (mm.includes('card')) return 'card';
+                if (mm.includes('wallet')) return 'card';
+                return 'card';
+              };
+
+              const selected = mapGatewayToSelected(gatewayMethod);
+
+              // Update payment data with the actual method and transaction id
               updatePaymentData({
-                selectedMethod: 'card', // or whatever method was used
-                // Add payment confirmation details
+                selectedMethod: selected,
+                paymentTransactionId: response.razorpay_payment_id
               });
 
               // Mark payment as completed and move to simplified review
@@ -1539,6 +1572,17 @@ export default function Checkout() {
   }
 
   const handlePlaceOrder = async () => {
+    // Require authentication before placing an order
+    if (!user?.id) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to place an order.",
+        variant: "destructive",
+      });
+      setLocation(`/signin`);
+      return;
+    }
+
     setIsPlacingOrder(true);
 
     try {
@@ -2147,6 +2191,17 @@ export default function Checkout() {
                               size="lg"
                               className="w-full"
                               onClick={async () => {
+                                // Require authentication before creating the order
+                                if (!user?.id) {
+                                  toast({
+                                    title: "Sign in required",
+                                    description: "Please sign in to confirm your order.",
+                                    variant: "destructive",
+                                  });
+                                  setLocation(`/signin`);
+                                  return;
+                                }
+
                                 setIsPlacingOrder(true);
                                 try {
                                   // Pass true for isRazorpayCompleted since payment is already completed

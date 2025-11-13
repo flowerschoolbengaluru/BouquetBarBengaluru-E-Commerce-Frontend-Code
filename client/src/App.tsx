@@ -20,6 +20,7 @@ import OrderConfirmation from "@/pages/order-confirmation";
 import OrderTracking from "@/pages/order-tracking";
 import type { User } from "@shared/schema";
 import ProductsListing from "./pages/ProductsListing";
+import MainCategoryAllProducts from "./pages/MainCategoryAllProducts";
 
 
  
@@ -28,8 +29,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/shop" component={Shop} />
-    <Route path="/products" component={ProductsListing} />
-      <Route path="/product/:id" component={ProductDetail} />
+      <Route path="/products" component={ProductsListing} />
+      <Route path="/category/:categoryId" component={MainCategoryAllProducts} />
       <Route path="/product/:id" component={ProductDetail} />
       <Route path="/cart" component={Cart} />
       <Route path="/checkout" component={Checkout} />

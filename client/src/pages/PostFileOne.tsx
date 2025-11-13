@@ -90,13 +90,13 @@ const PostFileOne: React.FC = () => {
   const handleCardClick = (card: typeof cardData[0]) => {
     console.log('Card clicked:', card); 
     // Navigate to ProductsListing with category and subcategory parameters
-    setLocation(`/products?category=${encodeURIComponent(card.category)}&subcategory=${encodeURIComponent(card.subcategory)}`);
+    setLocation(`/products?main_category=${encodeURIComponent(card.category)}&subcategory=${encodeURIComponent(card.subcategory)}`);
   };
 
   // Test navigation function
   const testNavigation = () => {
     console.log('Testing navigation...');
-    setLocation('/products?category=Test&subcategory=Test');
+    setLocation('/products?main_category=Test&subcategory=Test');
   };
 
   return (

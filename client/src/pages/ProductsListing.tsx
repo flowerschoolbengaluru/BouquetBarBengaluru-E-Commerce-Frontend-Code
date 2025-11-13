@@ -54,7 +54,7 @@ export default function ProductsListing() {
   const [urlParams, setUrlParams] = useState(() => {
     const searchParams = new URLSearchParams(window.location.search);
     return {
-      category: searchParams.get('category') ? decodeURIComponent(searchParams.get('category')!) : null,
+      main_category: searchParams.get('main_category') ? decodeURIComponent(searchParams.get('main_category')!) : null,
       subcategory: searchParams.get('subcategory') ? decodeURIComponent(searchParams.get('subcategory')!) : null,
       search: searchParams.get('search') ? decodeURIComponent(searchParams.get('search')!) : null,
     };
@@ -86,7 +86,7 @@ export default function ProductsListing() {
     const handleUrlChange = () => {
       const currentSearchParams = new URLSearchParams(window.location.search);
       const newParams = {
-        category: currentSearchParams.get('category') ? decodeURIComponent(currentSearchParams.get('category')!) : null,
+        main_category: currentSearchParams.get('main_category') ? decodeURIComponent(currentSearchParams.get('main_category')!) : null,
         subcategory: currentSearchParams.get('subcategory') ? decodeURIComponent(currentSearchParams.get('subcategory')!) : null,
         search: currentSearchParams.get('search') ? decodeURIComponent(currentSearchParams.get('search')!) : null,
       };
@@ -104,14 +104,14 @@ export default function ProductsListing() {
 
       // Check if params actually changed to avoid unnecessary updates
       const paramsChanged = 
-        newParams.category !== urlParams.category ||
+        newParams.main_category !== urlParams.main_category ||
         newParams.subcategory !== urlParams.subcategory ||
         newParams.search !== urlParams.search;
 
       if (!paramsChanged && parsedFlowerTypes.length === 0 && parsedArrangements.length === 0 && parsedColors.length === 0) return;
 
       // Reset filters only if category context actually changed
-      const categoryChanged = newParams.category !== urlParams.category || newParams.subcategory !== urlParams.subcategory;
+      const categoryChanged = newParams.main_category !== urlParams.main_category || newParams.subcategory !== urlParams.subcategory;
 
       setUrlParams(newParams);
       setSearchQuery(newParams.search || '');
@@ -166,7 +166,7 @@ export default function ProductsListing() {
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
   queryKey: [
     '/api/products',
-    urlParams.category,
+    urlParams.main_category,
     urlParams.subcategory,
     urlParams.search,
     filters.inStock,
@@ -182,8 +182,8 @@ export default function ProductsListing() {
     const params = new URLSearchParams();
  
     // Debug logging
-    if (urlParams.category || urlParams.subcategory) {
-      console.log('ProductsListing: Searching for category:', urlParams.category, 'subcategory:', urlParams.subcategory);
+    if (urlParams.main_category || urlParams.subcategory) {
+      console.log('ProductsListing: Searching for main_category:', urlParams.main_category, 'subcategory:', urlParams.subcategory);
     }
  
     // Always include search if it exists
@@ -191,11 +191,11 @@ export default function ProductsListing() {
       params.append('search', urlParams.search);
     }
     
-    // Always include category/subcategory if they exist (unless overridden by special filters)
-    if (urlParams.category && !filters.inStock && !filters.bestSeller) {
-      params.append('category', urlParams.category);
+    // Always include main_category/subcategory if they exist
+    if (urlParams.main_category) {
+      params.append('main_category', urlParams.main_category);
     }
-    if (urlParams.subcategory && !filters.inStock && !filters.bestSeller) {
+    if (urlParams.subcategory) {
       params.append('subcategory', urlParams.subcategory);
     }
 
@@ -248,10 +248,16 @@ export default function ProductsListing() {
 
     console.log('ProductsListing: API returned', data.length, 'products');
 
-    // If the user has explicitly activated any filters (flowerTypes/arrangements/colors/etc.),
-    // trust the backend response and skip heavy client-side filtering. This prevents the
-    // client from accidentally removing products the API correctly returned for the
-    // selected multi-filter combination.
+    // For direct category navigation (like main_category=flower-types&subcategory=Roses),
+    // trust the backend response and skip client-side filtering to avoid removing valid products
+    const isDirectCategoryNavigation = !!(urlParams.main_category || urlParams.subcategory) && !urlParams.search;
+    
+    if (isDirectCategoryNavigation) {
+      console.log('ProductsListing: Direct category navigation detected — trusting backend response (count=' + data.length + ')');
+      return data;
+    }
+
+    // If the user has explicitly activated any filters, trust the backend response
     const hasActiveFilter = (
       filters.flowerTypes.length > 0 ||
       filters.arrangements.length > 0 ||
@@ -322,17 +328,17 @@ export default function ProductsListing() {
             ((p as any)._normalizedDescription && (p as any)._normalizedDescription.includes(sc))
           );
           // When navigating by URL and no special toggles are set, allow navigation to show results
-          if (!filters.inStock && !filters.bestSeller && (urlParams.category || urlParams.subcategory)) {
+          if (!filters.inStock && !filters.bestSeller && (urlParams.main_category || urlParams.subcategory)) {
             matchesSubcategory = true;
           }
         }
 
         // When navigating by URL category/subcategory, don't apply additional filter restrictions
-        const isUrlNavigation = !!(urlParams.category || urlParams.subcategory);
+        const isUrlNavigation = !!(urlParams.main_category || urlParams.subcategory);
 
         // Category matching: allow top-level category ids like "flower-types" to pass when subcategory matches
-        const catQ = urlParams.category ? urlParams.category.toLowerCase() : '';
-        const matchesCategory = !urlParams.category ||
+        const catQ = urlParams.main_category ? urlParams.main_category.toLowerCase() : '';
+        const matchesCategory = !urlParams.main_category ||
           filters.inStock || filters.bestSeller ||
           ((p as any)._nc && catQ && (p as any)._nc.includes(catQ)) ||
           ((p as any)._normalizedName && catQ && (p as any)._normalizedName.includes(catQ)) ||
@@ -450,7 +456,7 @@ export default function ProductsListing() {
   window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
 
   setUrlParams({
-    category: params.get("category"),
+    main_category: params.get("main_category"),
     subcategory: params.get("subcategory"),
     search: searchQuery.trim() || null,
   });
@@ -474,7 +480,7 @@ export default function ProductsListing() {
   window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
 
   setUrlParams({
-    category: params.get("category"),
+    main_category: params.get("main_category"),
     subcategory: params.get("subcategory"),
     search: e.target.value.trim() || null,
   });
@@ -488,16 +494,16 @@ export default function ProductsListing() {
    
     // Update urlParams state to trigger refetch
     setUrlParams({
-      category: null,
+      main_category: null,
       subcategory: null,
       search: null
     });
   };
  
   // Handle navigation to specific category/subcategory
-  const navigateToCategory = (category: string, subcategory?: string) => {
+  const navigateToCategory = (main_category: string, subcategory?: string) => {
     const newParams = new URLSearchParams();
-    newParams.set('category', category);
+    newParams.set('main_category', main_category);
     if (subcategory) {
       newParams.set('subcategory', subcategory);
     }
@@ -507,7 +513,7 @@ export default function ProductsListing() {
    
     // Update urlParams state to trigger refetch
     setUrlParams({
-      category,
+      main_category,
       subcategory: subcategory || null,
       search: null
     });
@@ -620,7 +626,7 @@ export default function ProductsListing() {
     window.history.pushState({}, '', newUrl);
    
     setUrlParams({
-      category: null,
+      main_category: null,
       subcategory: null,
       search: null
     });
@@ -793,7 +799,7 @@ export default function ProductsListing() {
 
                     // Keep urlParams in sync and trigger refetch
                     setUrlParams({
-                      category: params.get('category'),
+                      main_category: params.get('main_category'),
                       subcategory: params.get('subcategory'),
                       search: params.get('search')
                     });
@@ -911,7 +917,7 @@ export default function ProductsListing() {
   }
  
   // Check if current category should hide filters
-  const shouldHideFilters = urlParams.category === 'Event' || urlParams.category === 'Venue';
+  const shouldHideFilters = urlParams.main_category === 'Event' || urlParams.main_category === 'Venue';
 
   // Friendly heading formatter
   const toTitleCase = (str: string) =>
@@ -927,8 +933,8 @@ export default function ProductsListing() {
     ? `Results for ${toTitleCase(urlParams.search)}`
     : urlParams.subcategory
       ? toTitleCase(urlParams.subcategory)
-      : urlParams.category
-        ? toTitleCase(urlParams.category)
+      : urlParams.main_category
+        ? toTitleCase(urlParams.main_category)
         : 'All Products';
  
   return (
@@ -955,16 +961,16 @@ export default function ProductsListing() {
           {/* Products Grid */}
           <div className="flex-1">
             {/* Breadcrumb Navigation */}
-            {(urlParams.category || urlParams.subcategory) && (
+            {(urlParams.main_category || urlParams.subcategory) && (
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
                 <Link href="/products" className="hover:text-pink-600">
                   All Products
                 </Link>
-                {urlParams.category && (
+                {urlParams.main_category && (
                   <>
                     <span>/</span>
                     <span className={urlParams.subcategory ? 'hover:text-pink-600 cursor-pointer' : 'text-pink-600 font-medium'}>
-                      {urlParams.category}
+                      {urlParams.main_category}
                     </span>
                   </>
                 )}
@@ -1112,35 +1118,58 @@ export default function ProductsListing() {
                     {/* Price and Stock Status */}
                     <div className="space-y-2 mt-1">
                       <div className="flex items-center gap-2">
-                        {product.originalPrice && product.originalPrice !== product.price && (
-                          <span className="text-gray-500 line-through text-sm">₹{product.originalPrice}</span>
-                        )}
-                        <span className="font-semibold text-gray-900 text-lg">₹{product.price || 0}</span>
-                        {product.discountPercentage && product.discountPercentage > 0 && (
-                          <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
-                            {product.discountPercentage}% OFF
-                          </span>
-                        )}
+                        {/* Show original price + discounted price + percent OFF when discounts are enabled */}
+                        {(() => {
+                          const discountsField = (product as any).discounts_offers ?? (product as any).discountsOffers ?? (product as any).discounts_offers;
+                          const hasDiscounts = typeof discountsField === 'boolean' ? discountsField : typeof discountsField === 'string' ? ['true','1','yes','enable'].includes(String(discountsField).toLowerCase()) : Boolean(discountsField);
+
+                          const originalRaw = (product as any).originalPrice ?? (product as any).originalprice ?? null;
+                          const originalVal = originalRaw != null && originalRaw !== '' ? parseFloat(String(originalRaw)) : NaN;
+                          const priceVal = !isNaN(parseFloat(String(product.price ?? 0))) ? parseFloat(String(product.price ?? 0)) : 0;
+
+                          if (hasDiscounts && !isNaN(originalVal) && originalVal > priceVal) {
+                            // Prefer explicit discountPercentage if present, otherwise compute it
+                            const explicitPct = (product as any).discountPercentage ?? (product as any).discount_percentage;
+                            const pct = explicitPct && Number(explicitPct) > 0 ? Number(explicitPct) : Math.round(((originalVal - priceVal) / originalVal) * 100);
+
+                            return (
+                              <>
+                                <span className="text-gray-500 line-through text-sm">₹{originalVal.toLocaleString()}</span>
+                                <span className="font-semibold text-gray-900 text-lg">₹{priceVal.toLocaleString()}</span>
+                                {pct > 0 && (
+                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                                    {pct}% OFF
+                                  </span>
+                                )}
+                              </>
+                            );
+                          }
+
+                          // If discounts flag is truthy but no original price, still show price and badge if discountPercentage present
+                          if (hasDiscounts && ((product as any).discountPercentage ?? (product as any).discount_percentage)) {
+                            const pct = Number((product as any).discountPercentage ?? (product as any).discount_percentage) || 0;
+                            return (
+                              <>
+                                <span className="font-semibold text-gray-900 text-lg">₹{priceVal.toLocaleString()}</span>
+                                {pct > 0 && (
+                                  <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                                    {pct}% OFF
+                                  </span>
+                                )}
+                              </>
+                            );
+                          }
+
+                          // Default: just show selling price
+                          return <span className="font-semibold text-gray-900 text-lg">₹{priceVal.toLocaleString()}</span>;
+                        })()}
                       </div>
                       
                       {/* Stock Status */}
                       <div className="flex justify-between items-center">
                         {product.inStock ? (
-                          <div className="flex items-center gap-1">
-                            {product.stockquantity && product.stockquantity <= 5 && product.stockquantity > 0 ? (
-                              <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded">
-                                Only {product.stockquantity} left
-                              </span>
-                            ) : product.stockquantity && product.stockquantity > 5 ? (
-                              <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
-                                In Stock
-                              </span>
-                            ) : (
-                              <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
-                                Available
-                              </span>
-                            )}
-                          </div>
+                          // Intentionally hidden in-stock UI per request: render nothing when product is in stock
+                          null
                         ) : (
                           <span className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded font-medium">
                             Out of Stock

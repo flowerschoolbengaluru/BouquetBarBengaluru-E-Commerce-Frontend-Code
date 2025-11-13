@@ -99,7 +99,7 @@ const PostThree = () => {
 
   const handleImageClick = (flower: typeof flowerData[0]) => {
     // Navigate to ProductsListing with category and subcategory parameters
-    setLocation(`/products?category=${encodeURIComponent(flower.category)}&subcategory=${encodeURIComponent(flower.subcategory)}`);
+    setLocation(`/products?main_category=${encodeURIComponent(flower.category)}&subcategory=${encodeURIComponent(flower.subcategory)}`);
   };
 
   return (
