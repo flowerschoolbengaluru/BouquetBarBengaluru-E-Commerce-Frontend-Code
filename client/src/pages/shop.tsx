@@ -412,10 +412,8 @@ function ShopContent() {
     // Check if this is a main category search
     const detectedCategory = detectMainCategory(suggestion.item);
     if (detectedCategory) {
-      // Clear other search results and show main category products
-      setShowSubcategoryProducts(null);
-      setShowNameSearchResults(null);
-      setShowProductsFor(detectedCategory);
+      // Navigate to ProductListing component with main_category parameter
+      setLocation(`/products?main_category=${encodeURIComponent(detectedCategory)}`);
       return;
     }
     
@@ -446,10 +444,8 @@ function ShopContent() {
       // Check if this is a main category search
       const detectedCategory = detectMainCategory(searchTerm);
       if (detectedCategory) {
-        // Clear other search results and show main category products
-        setShowSubcategoryProducts(null);
-        setShowNameSearchResults(null);
-        setShowProductsFor(detectedCategory);
+        // Navigate to ProductListing component with main_category parameter
+        setLocation(`/products?main_category=${encodeURIComponent(detectedCategory)}`);
         return;
       }
       
@@ -1470,16 +1466,19 @@ const getSubcategoriesForMainCategory = (mainCategoryId: string): string[] => {
     case 'flower-types':
       return [
         "Tulips", "Lilies", "Carnations", "Orchids", "Sunflowers", "Mixed Flowers", "Roses", 
-        "Baby's Breath", "Chrysanthemum", "Hydrangea", "Anthurium", "Calla Lilies", 
-        "Gerberas", "Peonies"
+        "Get Well Soon / Recovery Flowers", "Baby's Breath", "Chrysanthemum", "Hydrangea", 
+        "Anthurium", "Calla Lilies", "Gerberas", "Peonies", "Retirement Flowers"
       ];
     case 'gift-combo':
       return [
         "Flowers with Greeting Cards", "Flower with Fruits", "Floral Gift Hampers", 
         "Flower with Chocolates", "Flower with Cakes", "Flowers with Cheese", 
-        "Flowers with Nuts", "Flowers with Customized Gifts", "Flowers with Wine", 
-        "Flowers with Perfume", "Flowers with Jewelry", "Flowers with Teddy Bears", 
-        "Flowers with Scented Candles", "Flowers with Personalized Items"
+        "Flowers with Nuts", "Good Luck Flowers (before exams, interviews, journeys)",
+        "Grandparent's Day Flowers", "Pride Month Flowers", "Thank You", "Best Wishes",
+        "Flowers with Customized Gifts", "Flowers with Wine", "Flowers with Perfume", 
+        "Flowers with Jewelry", "Flowers with Teddy Bears", "Flowers with Scented Candles", 
+        "Flowers with Personalized Items", "Farewell Flowers", "Teacher's Day Flowers", 
+        "Children's Day Flowers"
       ];
     case 'event-decoration':
       return [
@@ -1526,14 +1525,10 @@ const CategoryProductsSection: React.FC = () => {
     queryFn: async () => {
       if (!showProductsFor) return { category: '', totalProducts: 0, allProducts: [], subcategories: {} };
       
-      // Get all subcategories for this main category
-      const allSubcategories = getSubcategoriesForMainCategory(showProductsFor);
-      const subcategoryParam = allSubcategories.join(',');
-      
       console.log(`[SHOP] Fetching products for main_category: ${showProductsFor}`);
-      console.log(`[SHOP] Subcategories: ${subcategoryParam}`);
       
-      const response = await apiRequest(`/api/products?main_category=${encodeURIComponent(showProductsFor)}&subcategory=${encodeURIComponent(subcategoryParam)}`, {
+      // Call API with only main_category - let backend handle subcategory matching intelligently
+      const response = await apiRequest(`/api/products?main_category=${encodeURIComponent(showProductsFor)}`, {
         method: 'GET'
       });
       const products = await response.json();
@@ -1777,7 +1772,7 @@ const ProductNameSearchSection: React.FC<{ searchTerm: string | null; onClear: (
       
       console.log(`[SHOP] Using product name search API for: ${searchTerm}`);
       
-      const response = await apiRequest(`/api/products/search?name=${encodeURIComponent(searchTerm)}`, {
+      const response = await apiRequest(`/api/products/?name=${encodeURIComponent(searchTerm)}`, {
         method: 'GET'
       });
       const data = await response.json();
@@ -1983,7 +1978,7 @@ const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear
       
       console.log(`[SHOP] Using subcategory search API for: ${subcategory}`);
       
-      const response = await apiRequest(`/api/products/search?subcategory=${encodeURIComponent(subcategory)}`, {
+      const response = await apiRequest(`/api/products/?subcategory=${encodeURIComponent(subcategory)}`, {
         method: 'GET'
       });
       const data = await response.json();

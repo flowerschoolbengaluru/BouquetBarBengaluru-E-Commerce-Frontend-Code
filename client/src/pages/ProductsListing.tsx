@@ -165,9 +165,9 @@ export default function ProductsListing() {
 
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
   queryKey: [
-    '/api/products',
+    'products-search',
     urlParams.main_category,
-    urlParams.subcategory,
+    urlParams.subcategory, 
     urlParams.search,
     filters.inStock,
     filters.featured,
@@ -179,47 +179,105 @@ export default function ProductsListing() {
     forceRefetch
   ],
   queryFn: async () => {
-    const params = new URLSearchParams();
- 
-    // Debug logging
-    if (urlParams.main_category || urlParams.subcategory) {
-      console.log('ProductsListing: Searching for main_category:', urlParams.main_category, 'subcategory:', urlParams.subcategory);
-    }
- 
-    // Always include search if it exists
+    console.log('[ProductsListing] ===== SEARCH QUERY START =====');
+    console.log('[ProductsListing] URL params:', urlParams);
+    console.log('[ProductsListing] Active filters:', filters);
+
+    // Determine which search API to use based on the new 3-way structure
+    let apiUrl = '';
+    let searchType = '';
+
+    // Build filter parameters that will be used in ALL scenarios
+    const filterParams = new URLSearchParams();
+    if (filters.inStock) filterParams.append('inStock', 'true');
+    if (filters.featured) filterParams.append('featured', 'true');
+    if (filters.bestSeller) filterParams.append('bestSeller', 'true');
+    if (filters.priceRange[0] > 0) filterParams.append('minPrice', filters.priceRange[0] + '');
+    if (filters.priceRange[1] < 10000) filterParams.append('maxPrice', filters.priceRange[1] + '');
+    if (filters.colors.length) filterParams.append('colors', filters.colors.join(','));
+    if (filters.flowerTypes.length) filterParams.append('flowerTypes', filters.flowerTypes.join(','));
+    if (filters.arrangements.length) filterParams.append('arrangements', filters.arrangements.join(','));
+
+    // Priority: search term > main_category + subcategory > subcategory only > main_category only > default products
     if (urlParams.search) {
-      params.append('search', urlParams.search);
+      // Scenario 1: Product name search using search API
+      searchType = 'product_name_search';
+      apiUrl = `/api/products/?productname=${encodeURIComponent(urlParams.search)}`;
+      console.log('[ProductsListing] SCENARIO 1: Product name search:', urlParams.search);
     }
-    
-    // Always include main_category/subcategory if they exist
-    if (urlParams.main_category) {
-      params.append('main_category', urlParams.main_category);
+    else if (urlParams.main_category && urlParams.subcategory) {
+      // Scenario 2: Main category + subcategory navigation using products API
+      searchType = 'main_category_with_subcategory';
+      const baseParams = new URLSearchParams();
+      baseParams.append('main_category', urlParams.main_category);
+      baseParams.append('subcategory', urlParams.subcategory);
+      // Merge with filter params
+      filterParams.forEach((value, key) => baseParams.append(key, value));
+      apiUrl = `/api/products?${baseParams.toString()}`;
+      console.log('[ProductsListing] SCENARIO 2: Main category + subcategory via products API:', urlParams.main_category, '+', urlParams.subcategory);
     }
-    if (urlParams.subcategory) {
-      params.append('subcategory', urlParams.subcategory);
+    else if (urlParams.main_category && !urlParams.subcategory) {
+      // Scenario 3: Main category only using products API
+      searchType = 'main_category_only';
+      const baseParams = new URLSearchParams();
+      baseParams.append('main_category', urlParams.main_category);
+      // Merge with filter params
+      filterParams.forEach((value, key) => baseParams.append(key, value));
+      apiUrl = `/api/products?${baseParams.toString()}`;
+      console.log('[ProductsListing] SCENARIO 3: Main category only via products API:', urlParams.main_category);
+    }
+    else if (urlParams.subcategory && !urlParams.main_category) {
+      // Scenario 4: Subcategory-only search using search API
+      searchType = 'subcategory_only';
+      apiUrl = `/api/products/?subcategory=${encodeURIComponent(urlParams.subcategory)}`;
+      console.log('[ProductsListing] SCENARIO 4: Subcategory-only via search API:', urlParams.subcategory);
+    }
+    else {
+      // Fallback: Use regular products API with filters only
+      searchType = 'regular_products';
+      apiUrl = `/api/products?${filterParams.toString()}`;
+      console.log('[ProductsListing] FALLBACK: Regular products API with filters');
     }
 
-    // Include all filter parameters
-    if (filters.inStock) params.append('inStock', 'true');
-    if (filters.featured) params.append('featured', 'true');
-    if (filters.bestSeller) params.append('bestSeller', 'true');
-    if (filters.priceRange[0] > 0) params.append('minPrice', filters.priceRange[0] + '');
-    if (filters.priceRange[1] < 10000) params.append('maxPrice', filters.priceRange[1] + '');
-    if (filters.colors.length) params.append('colors', filters.colors.join(','));
-    if (filters.flowerTypes.length) params.append('flowerTypes', filters.flowerTypes.join(','));
-    if (filters.arrangements.length) params.append('arrangements', filters.arrangements.join(','));
- 
-    const res = await apiRequest(`/api/products?${params.toString()}`);
- 
-    if (!res.ok) throw new Error("Failed to fetch");
- 
+    console.log('[ProductsListing] Making API request to:', apiUrl);
+    const res = await apiRequest(apiUrl);
+    
+    if (!res.ok) {
+      console.error('[ProductsListing] API request failed:', res.status, res.statusText);
+      throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
+    }
+    
     const data = await res.json();
+    console.log('[ProductsListing] API response:', data);
+    
+    // Handle different response formats
+    let products = [];
+    
+    if (searchType === 'regular_products' || searchType === 'main_category_with_subcategory' || searchType === 'main_category_only') {
+      // Regular products API returns array directly
+      products = Array.isArray(data) ? data : [];
+      console.log('[ProductsListing] Regular products API returned:', products.length, 'products');
+    } else {
+      // Search API returns structured response
+      if (data.success && data.products) {
+        products = data.products;
+        console.log(`[ProductsListing] Search API (${data.searchType}) returned:`, products.length, 'products');
+        
+        // Log subcategory grouping for main category searches
+        if (data.subcategories) {
+          console.log('[ProductsListing] Subcategories found:', Object.keys(data.subcategories));
+        }
+      } else {
+        console.warn('[ProductsListing] Search API returned no products or error:', data.message);
+        products = [];
+      }
+    }
 
     // Normalize `category`/`subcategory`/`name`/`description` to make client-side
     // matching resilient to backend stringified-array formats like '[]' or
     // comma-separated strings. We add lightweight _normalized* helpers on each
     // product object (used only for filtering; we keep original fields for UI).
-    data.forEach((p: any) => {
+    products.forEach((p: any) => {
       let cats: string[] = [];
       try {
         if (typeof p.category === 'string') {
@@ -246,15 +304,15 @@ export default function ProductsListing() {
       (p as any)._normalizedDescription = p.description ? String(p.description).toLowerCase() : '';
     });
 
-    console.log('ProductsListing: API returned', data.length, 'products');
+    console.log('ProductsListing: API returned', products.length, 'products');
 
-    // For direct category navigation (like main_category=flower-types&subcategory=Roses),
+    // For direct category navigation (from FlowerCategory clicks),
     // trust the backend response and skip client-side filtering to avoid removing valid products
-    const isDirectCategoryNavigation = !!(urlParams.main_category || urlParams.subcategory) && !urlParams.search;
+    const isDirectCategoryNavigation = !!(urlParams.main_category) && !urlParams.search;
     
     if (isDirectCategoryNavigation) {
-      console.log('ProductsListing: Direct category navigation detected — trusting backend response (count=' + data.length + ')');
-      return data;
+      console.log('ProductsListing: Direct category navigation detected — trusting backend response (count=' + products.length + ')');
+      return products;
     }
 
     // If the user has explicitly activated any filters, trust the backend response

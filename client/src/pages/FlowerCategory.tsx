@@ -745,16 +745,26 @@ const FlowerCategory: React.FC = () => {
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    // Toggle products display for the clicked category
-    if (showProductsFor === categoryId) {
-      setShowProductsFor(null); // Hide if already showing
-    } else {
-      setShowProductsFor(categoryId); // Show products
-    }
+    console.log(`[FLOWER CATEGORY] Main category clicked: ${categoryId}`);
+    
+    // Navigate to ProductListing component with main_category parameter
+    setLocation(`/products?main_category=${encodeURIComponent(categoryId)}`);
   };
 
   // Helper function to get all subcategories for a main category
   const getSubcategoriesForMainCategory = (mainCategoryId: string): string[] => {
+    // Find the category in allCategories and extract all items from all groups
+    const category = allCategories.find(cat => cat.id === mainCategoryId);
+    if (category) {
+      const allItems: string[] = [];
+      category.groups.forEach(group => {
+        allItems.push(...group.items);
+      });
+      // Remove duplicates (in case same item appears in multiple groups)
+      return Array.from(new Set(allItems));
+    }
+    
+    // Fallback for backward compatibility
     switch (mainCategoryId) {
       case 'arrangements':
         return [
@@ -766,32 +776,36 @@ const FlowerCategory: React.FC = () => {
           "Flower Garlands",
           "Lobby Arrangements", 
           "Exotic Arrangements",
-          "Premium Arrangements",
+          "Floral Cross Arrangement",
+          "Baby's Breath Arrangement",
+          "Gladiolus Arrangement",
           "Wine Bottle Arrangements",
           "Floral Wreaths",
           "Custom Arrangements"
         ];
       case 'flower-types':
         return [
-          "Roses",
-          "Lilies",
           "Tulips",
-          "Orchids",
+          "Lilies",
           "Carnations",
+          "Orchids",
           "Sunflowers",
           "Mixed Flowers",
+          "Roses",
+          "Get Well Soon / Recovery Flowers",
           "Baby's Breath",
           "Chrysanthemum",
           "Hydrangea",
           "Anthurium",
           "Calla Lilies",
           "Gerberas",
-          "Peonies"
+          "Peonies",
+          "Retirement Flowers"
         ];
       case 'occasion':
         return [
           "Father's Day",
-          "Mother's Day", 
+          "Mother's Day",
           "Valentine's Day",
           "Self-Flowers (self-love / pampering)",
           "Sister Love",
@@ -803,7 +817,21 @@ const FlowerCategory: React.FC = () => {
           "I'm Sorry Flowers",
           "I Love You Flowers",
           "Congratulations Flowers",
-          "Graduation Day Flowers"
+          "Graduation Day Flowers",
+          "Promotion / Success Party Flowers",
+          "Proposal / Date Night Flowers",
+          "Baby Showers Flowers",
+          "New Baby Arrival Flowers",
+          "Housewarming Flowers",
+          "Teacher's Day Flowers",
+          "Children's Day Flowers",
+          "Farewell Flowers",
+          "Retirement Flowers",
+          "Women's Day Flowers",
+          "Men's Day Flowers",
+          "Good Luck Flowers (before exams, interviews, journeys)",
+          "Grandparent's Day Flowers",
+          "Pride Month Flowers"
         ];
       case 'gift-combo':
         return [
@@ -814,8 +842,79 @@ const FlowerCategory: React.FC = () => {
           "Flower with Cakes",
           "Flowers with Cheese",
           "Flowers with Nuts",
+          "Good Luck Flowers (before exams, interviews, journeys)",
+          "Grandparent's Day Flowers",
+          "Pride Month Flowers",
+          "Thank You",
+          "Best Wishes",
+          "Flowers with Customized Gifts",
           "Flowers with Wine",
-          "Flowers with Teddy Bears"
+          "Flowers with Perfume",
+          "Flowers with Jewelry",
+          "Flowers with Teddy Bears",
+          "Flowers with Scented Candles",
+          "Flowers with Personalized Items",
+          "Farewell Flowers",
+          "Teacher's Day Flowers",
+          "Children's Day Flowers"
+        ];
+      case 'event-decoration':
+        return [
+          "Wedding Floral Decor",
+          "Corporate Event Flowers",
+          "Party Flower Decorations",
+          "Stage & Backdrop Flowers",
+          "Car Decoration Flowers",
+          "Temple / Pooja Flowers",
+          "Birthday Decorations",
+          "Entrance Arrangements",
+          "Table Centerpieces",
+          "Aisle Decorations",
+          "Archway Flowers",
+          "Ceiling Installations",
+          "Wall Decorations",
+          "Outdoor Event Flowers"
+        ];
+      case 'services':
+        return [
+          "Same-Day Flower Delivery",
+          "Next Day Delivery",
+          "Customized Message Cards",
+          "Floral Subscriptions Weekly/monthly"
+        ];
+      case 'memorial':
+        return [
+          "Pet Memorial Flowers",
+          "Funeral Wreaths",
+          "Condolence Bouquets",
+          "Remembrance Flowers",
+          "Memorial Sprays",
+          "Casket Arrangements",
+          "Sympathy",
+          "Funeral Home Delivery",
+          "Church Arrangements",
+          "Graveside Flowers",
+          "Memorial Service Flowers",
+          "Sympathy Gift Baskets",
+          "Living Tributes",
+          "Memorial Donations"
+        ];
+      case 'corporate':
+        return [
+          "Office Desk Flowers",
+          "Reception Area Flowers",
+          "Corporate Gifting Flowers",
+          "Brand-Themed Floral Arrangements",
+          "Conference Room Flowers",
+          "Executive Office Arrangements",
+          "Lobby Displays",
+          "Corporate Accounts",
+          "Volume Discounts",
+          "Regular Maintenance",
+          "Custom Corporate Designs",
+          "Event Floristry Services",
+          "Branded Arrangements",
+          "Long-term Contracts"
         ];
       default:
         return [];

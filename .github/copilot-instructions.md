@@ -1,29 +1,40 @@
 # AI Coding Instructions for Flower School E-Commerce
 
-## Project Architecture
+## Multi-Project Workspace Architecture
 
-This is a **full-stack TypeScript e-commerce application** for Flower School Bengaluru featuring:
+This workspace contains **three interconnected applications** for Flower School Bengaluru:
+- **`flowerschoolbengaluru-e-commese/`** - Main e-commerce frontend (React + Vite)
+- **`flowerschoolbengaluru-code/`** - Course enrollment frontend (React + Vite) 
+- **`flowerschoolbengaluru-back-end/`** - Unified Express.js backend serving both frontends
+
+⚠️ **CRITICAL**: When working in this workspace, identify which project you're in and use the correct patterns for that specific codebase.
+
+## Current Project: E-Commerce Frontend (`flowerschoolbengaluru-e-commese/`)
+
+### Architecture Overview
 - **Frontend**: React 18 + Vite + TypeScript in `client/` directory
-- **Backend**: Express.js with Drizzle ORM and PostgreSQL (NeonDB)
+- **Backend**: Shared Express.js server at `../flowerschoolbengaluru-back-end/`
 - **UI Framework**: shadcn/ui components with Radix UI and Tailwind CSS
 - **Router**: Wouter (lightweight alternative to React Router)
 - **State Management**: React Context (CartProvider, AuthProvider) + TanStack Query
+- **Database**: PostgreSQL with Drizzle ORM (external deployment)
 
-## Key File Locations & Conventions
+### Key File Locations & Import Patterns
 
-### Directory Structure
-- `client/src/` - All frontend code
-- `client/src/components/` - React components (kebab-case naming)
-- `client/src/hooks/` - Custom hooks and context providers
-- `client/src/pages/` - Page components (PascalCase naming)
-- `client/src/shared/schema.ts` - Shared TypeScript interfaces
-- `client/src/lib/` - Utilities, API client, authentication logic
-
-### Import Aliases (configured in `vite.config.ts`)
 ```typescript
+// Import aliases (vite.config.ts)
 "@" → "client/src"
 "@shared" → "client/src/shared" 
 "@assets" → "attached_assets"
+
+// Directory structure
+client/src/
+├── components/         # React components (kebab-case naming)
+├── hooks/             # Custom hooks and context providers
+├── pages/             # Page components (PascalCase naming)
+├── shared/schema.ts   # Core shared TypeScript interfaces
+├── types/             # Additional type definitions
+└── lib/               # Utilities, API client, auth logic
 ```
 
 ## Critical Development Workflows
@@ -32,116 +43,167 @@ This is a **full-stack TypeScript e-commerce application** for Flower School Ben
 ```bash
 npm run dev          # Start Vite dev server (port 5173)
 npm run build        # TypeScript compilation + Vite build
-npm run backend      # Start backend (cd server && npm run backend)
+npm run preview      # Preview production build locally
+npm run lint         # ESLint validation
+cd ../flowerschoolbengaluru-back-end && npm run dev  # Start backend server
 ```
 
-### Database & Schema
-- **ORM**: Drizzle with config in `drizzle.config.ts`
-- **Schema**: Shared types in `client/src/shared/schema.ts`
-- **Migrations**: Generated in `./migrations/` directory
-- **Database URL**: Must be set in `DATABASE_URL` environment variable
+### Environment Configuration
+- **Development**: `VITE_API_URL=http://localhost:5000` (backend server)
+- **Production**: `VITE_API_URL=https://flowerschoolbengaluru.com`
+- **API Client**: Environment detection in `lib/queryClient.ts`
+- **Database**: Drizzle config in `drizzle.config.ts` requires `DATABASE_URL`
 
-## Component & State Patterns
+## Core State Management Patterns
 
-### Context Providers Architecture
-The app uses a **nested provider pattern** in `App.tsx`:
+### Nested Provider Architecture (App.tsx)
 ```typescript
 QueryClientProvider → TooltipProvider → CartProvider → AuthProvider → Router
 ```
 
-### Cart Context (`hooks/cart-context.tsx`)
-- **1,234 lines** - Central business logic hub
-- Manages cart state, payment methods, delivery options, coupons
-- API integration for product fetching and order processing
-- Key types: `CartItem`, `PaymentData`, `AppliedCoupon`
+### Cart Context (`hooks/cart-context.tsx`) - 1,230+ lines
+The **central business logic hub** managing:
+- Cart state, payment methods, delivery options, coupons
+- API integration for products and order processing  
+- Key methods: `addToCart()`, `removeFromCart()`, `applyCoupon()`
+- Usage: `const { items, addToCart, totalPrice } = useCart();`
 
 ### Authentication (`hooks/user-auth.tsx`)
 - Session storage with cross-tab synchronization
-- Custom events for auth state updates
-- Integration with `lib/auth.ts` for storage management
+- Custom events for auth state changes
+- Usage: `const { user, login, logout, isAuthenticated } = useAuth();`
 
-### API Integration Pattern
-- **Base client**: `lib/api.ts` with environment-aware URL handling
-- **TanStack Query**: Used in `lib/queryClient.ts` for server state
-- **API Base URL**: Uses `VITE_API_URL` or defaults to `https://flowerschoolbengaluru.com`
+### API Integration Pattern (`lib/queryClient.ts`)
+```typescript
+// Standardized error handling with JSON/text parsing
+const response = await apiRequest('/api/products', { method: 'GET' });
+
+// TanStack Query patterns across pages
+const { data: products } = useQuery({
+  queryKey: ['products', categoryId],
+  queryFn: () => apiRequest(`/api/products?category=${categoryId}`)
+});
+```
 
 ## UI Component Conventions
 
-### shadcn/ui Setup
-- **Config**: `components.json` with "new-york" style
-- **Base Color**: Neutral with CSS variables enabled
-- **Components Path**: `@/components/ui/`
+### shadcn/ui Configuration
+- **Style**: "new-york" style from `components.json`
+- **Base Color**: Neutral with CSS variables
+- **Path**: `@/components/ui/`
 
-### Component Naming
-- **Page components**: PascalCase (`ProductDetail`, `MainCategoryAllProducts`)
-- **Feature components**: kebab-case (`fresh-flowers-section.tsx`, `checkout-steps.tsx`)
-- **UI components**: kebab-case following shadcn conventions
+### Component Naming Patterns
+```typescript
+// Page components: PascalCase
+ProductDetail.tsx, MainCategoryAllProducts.tsx, FlowerCategory.tsx
+
+// Feature components: kebab-case  
+fresh-flowers-section.tsx, checkout-steps.tsx
+
+// UI components: kebab-case (shadcn convention)
+button.tsx, card.tsx, dialog.tsx
+```
 
 ### Styling System
-- **Primary**: Tailwind CSS with extensive custom color variables
-- **Theme**: CSS variables in HSL format with alpha value support
-- **Responsive**: Mobile-first approach with standard Tailwind breakpoints
+- **Primary**: Tailwind CSS with extensive custom CSS variables
+- **Theme**: HSL format with alpha channels (`hsl(var(--primary) / <alpha-value>)`)
+- **Responsive**: Mobile-first with standard Tailwind breakpoints
 
-## Key Integration Points
+## Key Integration Points & Business Logic
 
 ### Payment System
-- **Razorpay Integration**: Configured in `lib/razorpay.ts`
-- **Payment Methods**: Card, UPI, Net Banking, COD, QR Code
-- **Payment Flow**: Handled through CartContext with transaction ID tracking
+- **Gateway**: Razorpay integration in `lib/razorpay.ts`
+- **Methods**: Card, UPI, Net Banking, COD, QR Code
+- **Flow**: Managed through CartContext with transaction tracking
 
-### Location Services
-- **Component**: `location-detector.tsx` for address detection
-- **Delivery**: Distance-based delivery options in `delivery-options.tsx`
-- **Address Management**: Full CRUD in `address-manager.tsx`
+### Product & Category Management
+```typescript
+// Product interface has 5 image fields
+interface Product {
+  imagefirst?: string;    // Primary product image
+  imagesecond?: string;   // Secondary view
+  imagethirder?: string;  // Third angle
+  imagefoure?: string;    // Fourth view
+  imagefive?: string;     // Additional image
+  stockquantity?: number; // Backend compatibility
+  stockQuantity?: number; // Frontend usage
+}
 
-### Product Architecture
-- **Types**: Complex Product interface with multiple image fields (`imagefirst`, `imagesecond`, etc.)
-- **Categories**: Dynamic category routing via `/category/:categoryId`
-- **Inventory**: Dual stock quantity fields for backend compatibility
+// Dynamic category routing
+<Route path="/category/:categoryId" component={MainCategoryAllProducts} />
+```
+
+### Location & Delivery Services
+- **Detection**: `location-detector.tsx` for automatic address detection
+- **Options**: Distance-based delivery calculations
+- **Management**: Full CRUD address operations in checkout flow
 
 ## Docker & Deployment
 
-### Multi-stage Build
+### Multi-stage Dockerfile
 ```dockerfile
-# Builder stage: Node.js build
-# Production stage: Nginx with optimized config
+# Stage 1: Build (Node.js + TypeScript compilation)
+# Stage 2: Serve (Nginx with optimized SPA configuration)
 ```
 
-### Nginx Configuration
-- **SPA Routing**: `try_files` handles client-side routing
-- **Security Headers**: CSP, XSS protection, frame options
-- **Compression**: Gzip enabled for static assets
+### Nginx Configuration Highlights
+- **SPA Support**: `try_files $uri /index.html` for client-side routing
+- **Security**: CSP headers, XSS protection, frame options
+- **Performance**: Gzip compression, static asset caching
 
-## Development Best Practices
+## Critical Development Patterns
 
-### TypeScript Patterns
-- **Shared Types**: Centralized in `shared/schema.ts`
-- **Interface Naming**: Clear, descriptive names (`CartItem extends Product`)
-- **Optional Fields**: Extensive use of optional properties for flexibility
+### TanStack Query Usage
+```typescript
+// Standard query pattern across pages
+const { data: products, isLoading, error } = useQuery({
+  queryKey: ['products', filters],
+  queryFn: () => apiRequest(`/api/products${buildQueryString(filters)}`)
+});
 
-### Error Handling
-- **API Errors**: HTTP status-based error throwing in `apiRequest`
-- **Form Validation**: Zod schemas for type-safe validation
-- **Toast Notifications**: Custom hook `use-toast.ts` for user feedback
+// Mutation pattern for cart operations
+const addItemMutation = useMutation({
+  mutationFn: (item: CartItem) => apiRequest('/api/cart/add', { 
+    method: 'POST', 
+    body: JSON.stringify(item) 
+  }),
+  onSuccess: () => queryClient.invalidateQueries(['cart'])
+});
+```
 
-### Performance Considerations
-- **Lazy Loading**: Components split by route
-- **Query Caching**: TanStack Query for server state management
-- **Bundle Optimization**: Vite with TypeScript compilation
+### Context Provider Patterns
+```typescript
+// Cart context usage - central to most components
+const { 
+  items, 
+  addToCart, 
+  removeFromCart, 
+  totalPrice, 
+  appliedCoupons,
+  deliveryOptions 
+} = useCart();
 
-## Common Gotchas
+// Authentication context
+const { user, isAuthenticated, login, logout } = useAuth();
+```
 
-1. **Backend Script**: References `server/` directory that may not exist in current workspace
-2. **Image Handling**: Products have 5 separate image fields - use appropriate field for context
-3. **Router**: Wouter uses different API than React Router (location, navigate patterns)
-4. **Auth Storage**: Uses sessionStorage, not localStorage - consider for persistence needs
-5. **API URLs**: Production uses same domain assumption - verify backend availability
+## Common Development Gotcas
+
+1. **Multi-Project Workspace**: Ensure you're in correct directory (`flowerschoolbengaluru-e-commese/`)
+2. **API Base URL**: Development uses `localhost:5000`, production uses same domain
+3. **Router Differences**: Wouter uses `useLocation()` not `useNavigate()` 
+4. **Image Fields**: 5 separate image properties - check which one contains actual data
+5. **Stock Fields**: Both `stockquantity` and `stockQuantity` exist for compatibility
+6. **Auth Storage**: sessionStorage means auth doesn't persist across browser restarts
+7. **File Naming**: Pages are PascalCase, components are kebab-case (mixed convention)
+8. **Category Context**: Large components like `FlowerCategory.tsx` (1,100+ lines) use local context providers
 
 ## Quick Start Checklist
 
-1. Verify `DATABASE_URL` environment variable
-2. Check if `server/` directory exists or backend is external
+1. Verify `DATABASE_URL` environment variable (for migrations only)
+2. Confirm external backend availability at configured `VITE_API_URL`
 3. Install dependencies: `npm install`
 4. Start development: `npm run dev`
-5. Verify shadcn/ui components work: Test a UI component import
-6. Test cart functionality: Core business logic validation
+5. Test API connectivity by checking network tab for `/api/` requests
+6. Verify shadcn/ui components work: Import from `@/components/ui/`
+7. Test cart functionality: CartContext is the central business logic hub
