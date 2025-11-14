@@ -145,6 +145,33 @@ export default function SignIn() {
             });
             return;
           }
+          
+          // Handle 500 Internal Server Error
+          if (status === 500) {
+            const bodyObj = typeof parsed === "object" && parsed !== null ? parsed : null;
+            
+            // If it's a database connection error, show generic error
+            if (bodyObj?.code === 'db_connection_error') {
+              setErrors({
+                email: "",
+                password: "",
+                general: "Database connection error. Please try again later."
+              });
+              return;
+            }
+            
+            // If it might be a user lookup failure (could indicate user doesn't exist)
+            // and we have email filled, offer create account option
+            if (formData.email && bodyObj?.code === 'internal_server_error') {
+              setErrors({ 
+                email: "Unable to verify your account. You might need to create one.",
+                password: "", 
+                general: "" 
+              });
+              setShowCreateAccountCTA(true);
+              return;
+            }
+          }
 
           // For other server errors
           setErrors({
@@ -428,17 +455,22 @@ export default function SignIn() {
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                     <div className="w-full max-w-md p-6">
                       <div className="bg-white rounded-lg shadow-lg p-6">
-                        <h3 className="text-lg font-semibold mb-2">You don't have an account</h3>
-                        <p className="text-sm text-gray-600 mb-4">It looks like the email you entered isn't registered. Would you like to create an account first, then sign in with the same credentials?</p>
+                        <h3 className="text-lg font-semibold mb-2 text-gray-800">Welcome! Let's create your account</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          It looks like you're new here! The email address <strong>{formData.email}</strong> isn't registered yet. 
+                          Would you like to create an account to start shopping for beautiful flowers?
+                        </p>
                         <div className="flex gap-3 justify-end">
-                          <Button variant="ghost" onClick={() => setShowCreateAccountCTA(false)}>Cancel</Button>
+                          <Button variant="ghost" onClick={() => setShowCreateAccountCTA(false)} className="text-gray-600">
+                            Maybe Later
+                          </Button>
                           <Button onClick={() => {
                             // Navigate to signup and prefill email via query param
                             const emailParam = formData.email ? `?email=${encodeURIComponent(formData.email)}` : '';
                             setShowCreateAccountCTA(false);
                             setLocation(`/signup${emailParam}`);
-                          }}>
-                            Create account
+                          }} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
+                            Create Account
                           </Button>
                         </div>
                       </div>

@@ -13,6 +13,8 @@ export interface Product {
   price: number | string;
   image?: string;
   category?: string;
+  subcategory?: string; // Added subcategory field
+  main_category?: string; // Added main_category field 
   quantity?: number;
   stockquantity?: number; // Added for backend compatibility
   stockQuantity?: number; // Added for backend compatibility

@@ -753,6 +753,75 @@ const FlowerCategory: React.FC = () => {
     }
   };
 
+  // Helper function to get all subcategories for a main category
+  const getSubcategoriesForMainCategory = (mainCategoryId: string): string[] => {
+    switch (mainCategoryId) {
+      case 'arrangements':
+        return [
+          "Bouquets (hand-tied, wrapped)",
+          "Flower Baskets", 
+          "Flower Boxes",
+          "Vase Arrangements",
+          "Floral Centerpieces",
+          "Flower Garlands",
+          "Lobby Arrangements", 
+          "Exotic Arrangements",
+          "Premium Arrangements",
+          "Wine Bottle Arrangements",
+          "Floral Wreaths",
+          "Custom Arrangements"
+        ];
+      case 'flower-types':
+        return [
+          "Roses",
+          "Lilies",
+          "Tulips",
+          "Orchids",
+          "Carnations",
+          "Sunflowers",
+          "Mixed Flowers",
+          "Baby's Breath",
+          "Chrysanthemum",
+          "Hydrangea",
+          "Anthurium",
+          "Calla Lilies",
+          "Gerberas",
+          "Peonies"
+        ];
+      case 'occasion':
+        return [
+          "Father's Day",
+          "Mother's Day", 
+          "Valentine's Day",
+          "Self-Flowers (self-love / pampering)",
+          "Sister Love",
+          "Brother Love",
+          "Friendship Day",
+          "Anniversary",
+          "Birthday",
+          "Get Well Soon / Recovery Flowers",
+          "I'm Sorry Flowers",
+          "I Love You Flowers",
+          "Congratulations Flowers",
+          "Graduation Day Flowers"
+        ];
+      case 'gift-combo':
+        return [
+          "Flowers with Greeting Cards",
+          "Flower with Fruits",
+          "Floral Gift Hampers",
+          "Flower with Chocolates",
+          "Flower with Cakes",
+          "Flowers with Cheese",
+          "Flowers with Nuts",
+          "Flowers with Wine",
+          "Flowers with Teddy Bears"
+        ];
+      default:
+        return [];
+    }
+  };
+
   const handleMouseEnter = (categoryId: string, event: React.MouseEvent) => {
     if (screenSize !== 'desktop') return;
     // Clear any existing timeout

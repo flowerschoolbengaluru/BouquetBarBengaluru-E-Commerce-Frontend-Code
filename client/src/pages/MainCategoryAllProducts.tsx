@@ -310,15 +310,19 @@ const MainCategoryAllProducts: React.FC = () => {
   const { data: products = [], isLoading, error } = useQuery({
     queryKey: ['main-category-products', categoryId, searchTerm],
     queryFn: async () => {
-      let url = `/api/products?main_category=${encodeURIComponent(categoryId)}`;
+      // Use the new API endpoint
+      const payload = {
+        category: categoryId,
+        subcategory: null,
+        search: searchTerm.trim() || undefined
+      };
       
-      // Add search term
-      if (searchTerm.trim()) {
-        url += `&search=${encodeURIComponent(searchTerm)}`;
-      }
-      
-      console.log('Fetching products from:', url);
-      const response = await apiRequest(url);
+      console.log('Fetching products with payload:', payload);
+      const response = await apiRequest('/api/products/subcategorymaincategory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       const data = await response.json();
       return data || [];
     },

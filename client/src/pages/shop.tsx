@@ -395,6 +395,7 @@ function ShopContent() {
 
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: { item: string, category: string, categoryId: string }) => {
+    setSearchQuery(suggestion.item);
     setShowSuggestions(false);
     setShowMobileMenu(false);
     
@@ -430,8 +431,10 @@ function ShopContent() {
       setShowSuggestions(false);
       setShowMobileMenu(false);
       
+      const searchTerm = searchQuery.trim();
+      
       // Check if this is a subcategory search first
-      const detectedSubcategory = detectSubcategory(searchQuery.trim());
+      const detectedSubcategory = detectSubcategory(searchTerm);
       if (detectedSubcategory) {
         // Clear other search results and show subcategory products
         setShowProductsFor(null);
@@ -441,7 +444,7 @@ function ShopContent() {
       }
       
       // Check if this is a main category search
-      const detectedCategory = detectMainCategory(searchQuery.trim());
+      const detectedCategory = detectMainCategory(searchTerm);
       if (detectedCategory) {
         // Clear other search results and show main category products
         setShowSubcategoryProducts(null);
@@ -453,7 +456,7 @@ function ShopContent() {
       // Otherwise treat as product name search
       setShowProductsFor(null);
       setShowSubcategoryProducts(null);
-      setShowNameSearchResults(searchQuery.trim());
+      setShowNameSearchResults(searchTerm);
     }
   };
 
@@ -492,9 +495,21 @@ function ShopContent() {
     removeFromCart
   } = useCart();
 
-  // Get products data
+  // Get products data - fetch only best sellers
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", "bestseller"],
+    queryFn: async () => {
+      console.log('[SHOP] Fetching best seller products from API');
+      
+      const response = await apiRequest('/api/products?bestSeller=true', {
+        method: 'GET'
+      });
+      const data = await response.json();
+      
+      console.log('[SHOP] Best seller products received:', data.length, 'products');
+      
+      return data;
+    }
   });
 
   // Debug: Log product data to verify stock properties
@@ -561,15 +576,8 @@ function ShopContent() {
     return product.inStock ?? true;
   };
 
-  // Show only best seller products
+  // Sort best seller products by name since API already filters for best sellers
   const filteredProducts = (products as Product[])
-    .filter((product: Product) => {
-      const rawBestSeller = (product as any).isBestSeller ?? (product as any).isbestseller;
-      const isBestSeller = typeof rawBestSeller === 'string'
-        ? ['true', '1', 'yes', 'enable'].includes(rawBestSeller.toLowerCase())
-        : !!rawBestSeller;
-      return isBestSeller;
-    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Handle add to cart with toast notification
@@ -1442,6 +1450,64 @@ function ShopContent() {
   );
 }
 
+// Helper function to get all subcategories for a main category
+const getSubcategoriesForMainCategory = (mainCategoryId: string): string[] => {
+  switch (mainCategoryId) {
+    case 'occasion':
+      return [
+        "Birthday Flowers", "Anniversary Flowers", "Wedding Flowers", "Valentine's Day Flowers", 
+        "Mother's Day Flowers", "Get Well Soon Flowers", "Congratulations Flowers", 
+        "Sympathy & Funeral Flowers", "New Baby Flowers", "Graduation Flowers", 
+        "Housewarming Flowers", "Retirement Flowers", "Christmas Flowers", "New Year Flowers"
+      ];
+    case 'arrangements':
+      return [
+        "Bouquets (hand-tied, wrapped)", "Flower Baskets", "Flower Boxes", "Vase Arrangements", 
+        "Floral Centerpieces", "Flower Garlands", "Lobby Arrangements", "Exotic Arrangements",
+        "Floral Cross Arrangement", "Baby's Breath Arrangement", "Gladiolus Arrangement", 
+        "Wine Bottle Arrangements", "Floral Wreaths", "Custom Arrangements"
+      ];
+    case 'flower-types':
+      return [
+        "Tulips", "Lilies", "Carnations", "Orchids", "Sunflowers", "Mixed Flowers", "Roses", 
+        "Baby's Breath", "Chrysanthemum", "Hydrangea", "Anthurium", "Calla Lilies", 
+        "Gerberas", "Peonies"
+      ];
+    case 'gift-combo':
+      return [
+        "Flowers with Greeting Cards", "Flower with Fruits", "Floral Gift Hampers", 
+        "Flower with Chocolates", "Flower with Cakes", "Flowers with Cheese", 
+        "Flowers with Nuts", "Flowers with Customized Gifts", "Flowers with Wine", 
+        "Flowers with Perfume", "Flowers with Jewelry", "Flowers with Teddy Bears", 
+        "Flowers with Scented Candles", "Flowers with Personalized Items"
+      ];
+    case 'event-decoration':
+      return [
+        "Wedding Floral Decor", "Corporate Event Flowers", "Party Flower Decorations", 
+        "Stage & Backdrop Flowers", "Car Decoration Flowers", "Temple / Pooja Flowers", 
+        "Birthday Decorations", "Entrance Arrangements", "Table Centerpieces", 
+        "Aisle Decorations", "Archway Flowers", "Ceiling Installations", 
+        "Wall Decorations", "Outdoor Event Flowers"
+      ];
+    case 'services':
+      return [
+        "Same-Day Flower Delivery", "Next Day Delivery", "Customized Message Cards", 
+        "Floral Subscriptions Weekly/monthly", "International Delivery", 
+        "Express Delivery", "Scheduled Delivery"
+      ];
+    case 'memorial':
+      return [
+        "Funeral Wreaths", "Sympathy Flowers", "Memorial Arrangements", "Condolence Flowers"
+      ];
+    case 'corporate':
+      return [
+        "Office Arrangements", "Corporate Events", "Business Gifts", "Conference Flowers"
+      ];
+    default:
+      return [];
+  }
+};
+
 // Category Products Section Component
 const CategoryProductsSection: React.FC = () => {
   const { showProductsFor } = useCategoryContext();
@@ -1449,7 +1515,7 @@ const CategoryProductsSection: React.FC = () => {
   const { addToCart, isInCart, getItemQuantity } = useCart();
   const { toast } = useToast();
   
-  // Fetch products for the selected category using new API endpoint
+  // Fetch products for the selected category using products API with all subcategories
   const { data: categoryData, isLoading: productsLoading } = useQuery<{
     category: string;
     totalProducts: number;
@@ -1460,9 +1526,54 @@ const CategoryProductsSection: React.FC = () => {
     queryFn: async () => {
       if (!showProductsFor) return { category: '', totalProducts: 0, allProducts: [], subcategories: {} };
       
-      const response = await apiRequest(`/api/products/main_category/${encodeURIComponent(showProductsFor)}`);
-      const data = await response.json();
-      return data || { category: '', totalProducts: 0, allProducts: [], subcategories: {} };
+      // Get all subcategories for this main category
+      const allSubcategories = getSubcategoriesForMainCategory(showProductsFor);
+      const subcategoryParam = allSubcategories.join(',');
+      
+      console.log(`[SHOP] Fetching products for main_category: ${showProductsFor}`);
+      console.log(`[SHOP] Subcategories: ${subcategoryParam}`);
+      
+      const response = await apiRequest(`/api/products?main_category=${encodeURIComponent(showProductsFor)}&subcategory=${encodeURIComponent(subcategoryParam)}`, {
+        method: 'GET'
+      });
+      const products = await response.json();
+      console.log('[SHOP] API Response received:', products.length, 'products');
+      
+      // Process and group products by subcategory
+      const subcategoriesGrouped: Record<string, Product[]> = {};
+      const allSubcategoriesSet = new Set<string>();
+      
+      products.forEach((product: Product) => {
+        if (product.subcategory) {
+          let subcats: string[] = [];
+          try {
+            if (typeof product.subcategory === 'string' && product.subcategory.startsWith('[')) {
+              subcats = JSON.parse(product.subcategory);
+            } else if (typeof product.subcategory === 'string') {
+              subcats = product.subcategory.split(',').map(s => s.trim());
+            } else {
+              subcats = [String(product.subcategory)];
+            }
+          } catch (e) {
+            subcats = [String(product.subcategory)];
+          }
+          
+          subcats.forEach(subcat => {
+            allSubcategoriesSet.add(subcat);
+            if (!subcategoriesGrouped[subcat]) {
+              subcategoriesGrouped[subcat] = [];
+            }
+            subcategoriesGrouped[subcat].push(product);
+          });
+        }
+      });
+      
+      return {
+        category: showProductsFor,
+        totalProducts: products.length,
+        allProducts: products,
+        subcategories: subcategoriesGrouped
+      };
     },
     enabled: !!showProductsFor
   });
@@ -1565,8 +1676,32 @@ const CategoryProductsSection: React.FC = () => {
                   )}
                 </div>
                 <CardContent className="p-3 md:p-4">
+                  {/* Price with discount logic */}
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                    {(() => {
+                      const discountsField = (product as any).discounts_offers ?? (product as any).discountsOffers;
+                      if (typeof discountsField === 'boolean' ? discountsField : typeof discountsField === 'string' ? ['true','1','yes','enable'].includes(discountsField.toLowerCase()) : Boolean(discountsField)) {
+                        // show original price only when discounts are enabled
+                        if ((product.originalprice || (product as any).originalPrice) && parseFloat(String(product.originalprice ?? (product as any).originalPrice)) !== parseFloat(String(product.price ?? 0))) {
+                          return (
+                            <>
+                              <span className="text-gray-500 line-through text-sm">₹{parseFloat(String(product.originalprice ?? (product as any).originalPrice)).toLocaleString()}</span>
+                              <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                              {((product.discount_percentage ?? (product as any).discountPercentage) && Number(product.discount_percentage ?? (product as any).discountPercentage) > 0) && (
+                                <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                                  {product.discount_percentage ?? (product as any).discountPercentage}% OFF
+                                </span>
+                              )}
+                            </>
+                          );
+                        }
+                      }
+
+                      // Default: show only the selling price formatted
+                      return (
+                        <span className="font-semibold text-gray-900 text-lg">₹{parseFloat(String(product.price ?? 0)).toLocaleString()}</span>
+                      );
+                    })()}
                   </div>
                   
                   <h3
@@ -1636,7 +1771,29 @@ const ProductNameSearchSection: React.FC<{ searchTerm: string | null; onClear: (
     totalProducts: number;
     products: Product[];
   }>({
-    queryKey: [`/api/products/search?name=${encodeURIComponent(searchTerm || '')}`],
+    queryKey: [`product-name-search`, searchTerm],
+    queryFn: async () => {
+      if (!searchTerm) return { searchTerm: '', totalProducts: 0, products: [] };
+      
+      console.log(`[SHOP] Using product name search API for: ${searchTerm}`);
+      
+      const response = await apiRequest(`/api/products/search?name=${encodeURIComponent(searchTerm)}`, {
+        method: 'GET'
+      });
+      const data = await response.json();
+      console.log('[SHOP] Product name search API Response:', data);
+      
+      if (data.success) {
+        return {
+          searchTerm: searchTerm,
+          totalProducts: data.totalProducts,
+          products: data.products || []
+        };
+      } else {
+        console.error('[SHOP] Product name search API Error:', data.error);
+        return { searchTerm: '', totalProducts: 0, products: [] };
+      }
+    },
     enabled: !!searchTerm,
   });
   
@@ -1814,7 +1971,7 @@ const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear
   const { addToCart, isInCart, getItemQuantity } = useCart();
   const { toast } = useToast();
   
-  // Fetch products for the selected subcategory using new API endpoint
+  // Fetch products for the selected subcategory using search API
   const { data: subcategoryData, isLoading: productsLoading } = useQuery<{
     subcategory: string;
     totalProducts: number;
@@ -1824,9 +1981,24 @@ const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear
     queryFn: async () => {
       if (!subcategory) return { subcategory: '', totalProducts: 0, products: [] };
       
-      const response = await apiRequest(`/api/products/subcategory/${encodeURIComponent(subcategory)}`);
+      console.log(`[SHOP] Using subcategory search API for: ${subcategory}`);
+      
+      const response = await apiRequest(`/api/products/search?subcategory=${encodeURIComponent(subcategory)}`, {
+        method: 'GET'
+      });
       const data = await response.json();
-      return data || { subcategory: '', totalProducts: 0, products: [] };
+      console.log('[SHOP] Subcategory search API Response:', data);
+      
+      if (data.success) {
+        return {
+          subcategory: subcategory,
+          totalProducts: data.totalProducts,
+          products: data.products || []
+        };
+      } else {
+        console.error('[SHOP] Subcategory search API Error:', data.error);
+        return { subcategory: '', totalProducts: 0, products: [] };
+      }
     },
     enabled: !!subcategory
   });
