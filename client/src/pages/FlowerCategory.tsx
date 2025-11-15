@@ -749,6 +749,14 @@ const FlowerCategory: React.FC = () => {
     
     // Navigate to ProductListing component with main_category parameter
     setLocation(`/products?main_category=${encodeURIComponent(categoryId)}`);
+    
+    // Dispatch custom event to notify other components of navigation
+    window.dispatchEvent(new CustomEvent('locationchange', { 
+      detail: { 
+        path: `/products?main_category=${encodeURIComponent(categoryId)}`,
+        type: 'category-navigation'
+      } 
+    }));
   };
 
   // Helper function to get all subcategories for a main category

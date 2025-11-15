@@ -46,8 +46,7 @@ function ShopContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { setShowProductsFor } = useCategoryContext(); // Add this hook
-  const [showSubcategoryProducts, setShowSubcategoryProducts] = useState<string | null>(null);
-  const [showNameSearchResults, setShowNameSearchResults] = useState<string | null>(null);
+  // showSubcategoryProducts and showNameSearchResults removed - all searches navigate to ProductsListing
 
   // Add search suggestions state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -402,10 +401,13 @@ function ShopContent() {
     // Check if this is a subcategory search first
     const detectedSubcategory = detectSubcategory(suggestion.item);
     if (detectedSubcategory) {
-      // Clear other search results and show subcategory products
-      setShowProductsFor(null);
-      setShowNameSearchResults(null);
-      setShowSubcategoryProducts(detectedSubcategory);
+      // Navigate to ProductsListing for subcategory search
+      const targetUrl = `/products?subcategory=${encodeURIComponent(detectedSubcategory)}`;
+      setLocation(targetUrl);
+      // Dispatch custom event for immediate detection
+      window.dispatchEvent(new CustomEvent('locationchange', { 
+        detail: { path: targetUrl, type: 'subcategory-navigation' } 
+      }));
       return;
     }
     
@@ -413,14 +415,22 @@ function ShopContent() {
     const detectedCategory = detectMainCategory(suggestion.item);
     if (detectedCategory) {
       // Navigate to ProductListing component with main_category parameter
-      setLocation(`/products?main_category=${encodeURIComponent(detectedCategory)}`);
+      const targetUrl = `/products?main_category=${encodeURIComponent(detectedCategory)}`;
+      setLocation(targetUrl);
+      // Dispatch custom event for immediate detection
+      window.dispatchEvent(new CustomEvent('locationchange', { 
+        detail: { path: targetUrl, type: 'category-navigation' } 
+      }));
       return;
     }
     
-    // Otherwise treat as product name search
-    setShowProductsFor(null);
-    setShowSubcategoryProducts(null);
-    setShowNameSearchResults(suggestion.item);
+    // Navigate to ProductsListing for product name search
+    const targetUrl = `/products?search=${encodeURIComponent(suggestion.item)}`;
+    setLocation(targetUrl);
+    // Dispatch custom event for immediate detection
+    window.dispatchEvent(new CustomEvent('locationchange', { 
+      detail: { path: targetUrl, type: 'search-navigation' } 
+    }));
   };
 
   // Handle search key down
@@ -434,10 +444,13 @@ function ShopContent() {
       // Check if this is a subcategory search first
       const detectedSubcategory = detectSubcategory(searchTerm);
       if (detectedSubcategory) {
-        // Clear other search results and show subcategory products
-        setShowProductsFor(null);
-        setShowNameSearchResults(null);
-        setShowSubcategoryProducts(detectedSubcategory);
+        // Navigate to ProductsListing for subcategory search
+        const targetUrl = `/products?subcategory=${encodeURIComponent(detectedSubcategory)}`;
+        setLocation(targetUrl);
+        // Dispatch custom event for immediate detection
+        window.dispatchEvent(new CustomEvent('locationchange', { 
+          detail: { path: targetUrl, type: 'subcategory-navigation' } 
+        }));
         return;
       }
       
@@ -445,14 +458,22 @@ function ShopContent() {
       const detectedCategory = detectMainCategory(searchTerm);
       if (detectedCategory) {
         // Navigate to ProductListing component with main_category parameter
-        setLocation(`/products?main_category=${encodeURIComponent(detectedCategory)}`);
+        const targetUrl = `/products?main_category=${encodeURIComponent(detectedCategory)}`;
+        setLocation(targetUrl);
+        // Dispatch custom event for immediate detection
+        window.dispatchEvent(new CustomEvent('locationchange', { 
+          detail: { path: targetUrl, type: 'category-navigation' } 
+        }));
         return;
       }
       
-      // Otherwise treat as product name search
-      setShowProductsFor(null);
-      setShowSubcategoryProducts(null);
-      setShowNameSearchResults(searchTerm);
+      // Navigate to ProductsListing for product name search
+      const targetUrl = `/products?search=${encodeURIComponent(searchTerm)}`;
+      setLocation(targetUrl);
+      // Dispatch custom event for immediate detection
+      window.dispatchEvent(new CustomEvent('locationchange', { 
+        detail: { path: targetUrl, type: 'search-navigation' } 
+      }));
     }
   };
 
@@ -1161,11 +1182,9 @@ function ShopContent() {
       {/* Category Products Display */}
       <CategoryProductsSection />
       
-      {/* Subcategory Products Display */}
-      <SubcategoryProductsSection subcategory={showSubcategoryProducts} onClear={() => setShowSubcategoryProducts(null)} />
+      {/* Subcategory Products Display - Disabled: All searches navigate to ProductsListing */}
       
-      {/* Product Name Search Results Display */}
-      <ProductNameSearchSection searchTerm={showNameSearchResults} onClear={() => setShowNameSearchResults(null)} />
+      {/* Product Name Search Results Display - Disabled: All searches navigate to ProductsListing */}
      
       <div>
         <PostFile />

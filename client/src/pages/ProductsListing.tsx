@@ -49,6 +49,9 @@ interface FilterState {
  
 export default function ProductsListing() {
   const [location, setLocation] = useLocation();
+  
+  // Force re-render when URL changes by tracking the full search string
+  const [currentSearch, setCurrentSearch] = useState(window.location.search);
  
   // Get URL parameters and create a reactive system
   const [urlParams, setUrlParams] = useState(() => {
@@ -77,13 +80,17 @@ export default function ProductsListing() {
     bestSeller: false
   });
  
-  const [forceRefetch, setForceRefetch] = useState(0);
   const cart = useCart();
   const { toast } = useToast();
  
   // React to route/query changes so search works from anywhere (ShopNav, categories, etc.)
   useEffect(() => {
     const handleUrlChange = () => {
+      const newSearch = window.location.search;
+      
+      // Always update currentSearch to ensure re-renders
+      setCurrentSearch(newSearch);
+      
       const currentSearchParams = new URLSearchParams(window.location.search);
       const newParams = {
         main_category: currentSearchParams.get('main_category') ? decodeURIComponent(currentSearchParams.get('main_category')!) : null,
@@ -108,7 +115,16 @@ export default function ProductsListing() {
         newParams.subcategory !== urlParams.subcategory ||
         newParams.search !== urlParams.search;
 
-      if (!paramsChanged && parsedFlowerTypes.length === 0 && parsedArrangements.length === 0 && parsedColors.length === 0) return;
+      // Always proceed if params changed (for quick navigation)
+      if (paramsChanged) {
+        // Params changed, update immediately
+      } else {
+        // Only check filters if params didn't change
+        const filtersChanged = parsedFlowerTypes.length > 0 || parsedArrangements.length > 0 || parsedColors.length > 0;
+        if (!filtersChanged) {
+          return;
+        }
+      }
 
       // Reset filters only if category context actually changed
       const categoryChanged = newParams.main_category !== urlParams.main_category || newParams.subcategory !== urlParams.subcategory;
@@ -148,20 +164,64 @@ export default function ProductsListing() {
         }));
       }
 
-      // Force a refetch when params change
-      setForceRefetch(prev => prev + 1);
+      // The query key will change automatically, no need to force refetch
     };
 
     // Run on mount and when location changes
     handleUrlChange();
 
-    // Also listen for popstate events (browser back/forward)
+    // Listen for various navigation events
     window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('pushstate', handleUrlChange);
+    window.addEventListener('replacestate', handleUrlChange);
+    
+    // Custom event listener for programmatic navigation
+    const handleCustomNavigation = (e: any) => {
+      setTimeout(handleUrlChange, 0); // Slight delay to ensure URL is updated
+    };
+    window.addEventListener('locationchange', handleCustomNavigation);
     
     return () => {
       window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('pushstate', handleUrlChange);
+      window.removeEventListener('replacestate', handleUrlChange);
+      window.removeEventListener('locationchange', handleCustomNavigation);
     };
-  }, [location]); // Dependency on location ensures this runs when route changes
+  }, [location, currentSearch]); // Include currentSearch to catch all URL changes
+
+  // Immediate URL sync effect - runs on every render to catch rapid changes
+  useEffect(() => {
+    const currentUrl = window.location.search;
+    if (currentUrl !== currentSearch) {
+      const searchParams = new URLSearchParams(currentUrl);
+      const newParams = {
+        main_category: searchParams.get('main_category') ? decodeURIComponent(searchParams.get('main_category')!) : null,
+        subcategory: searchParams.get('subcategory') ? decodeURIComponent(searchParams.get('subcategory')!) : null,
+        search: searchParams.get('search') ? decodeURIComponent(searchParams.get('search')!) : null,
+      };
+      
+      // Always update if URL changed
+      setCurrentSearch(currentUrl);
+      setUrlParams(newParams);
+      setSearchQuery(newParams.search || '');
+      
+      // Reset filters when category changes  
+      if (newParams.main_category !== urlParams.main_category || newParams.subcategory !== urlParams.subcategory) {
+        setFilters({
+          priceRange: [0, 10000],
+          flowerTypes: [],
+          arrangements: [],
+          occasions: [],
+          colors: [],
+          inStock: false,
+          featured: false,
+          bestSeller: false
+        });
+      }
+    }
+  }); // No dependencies - runs on every render for immediate response
+
+
 
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
   queryKey: [
@@ -175,14 +235,9 @@ export default function ProductsListing() {
     filters.colors,
     filters.priceRange,
     filters.flowerTypes,
-    filters.arrangements,
-    forceRefetch
+    filters.arrangements
   ],
   queryFn: async () => {
-    console.log('[ProductsListing] ===== SEARCH QUERY START =====');
-    console.log('[ProductsListing] URL params:', urlParams);
-    console.log('[ProductsListing] Active filters:', filters);
-
     // Determine which search API to use based on the new 3-way structure
     let apiUrl = '';
     let searchType = '';
@@ -203,7 +258,6 @@ export default function ProductsListing() {
       // Scenario 1: Product name search using search API
       searchType = 'product_name_search';
       apiUrl = `/api/products/?productname=${encodeURIComponent(urlParams.search)}`;
-      console.log('[ProductsListing] SCENARIO 1: Product name search:', urlParams.search);
     }
     else if (urlParams.main_category && urlParams.subcategory) {
       // Scenario 2: Main category + subcategory navigation using products API
@@ -214,7 +268,6 @@ export default function ProductsListing() {
       // Merge with filter params
       filterParams.forEach((value, key) => baseParams.append(key, value));
       apiUrl = `/api/products?${baseParams.toString()}`;
-      console.log('[ProductsListing] SCENARIO 2: Main category + subcategory via products API:', urlParams.main_category, '+', urlParams.subcategory);
     }
     else if (urlParams.main_category && !urlParams.subcategory) {
       // Scenario 3: Main category only using products API
@@ -224,31 +277,25 @@ export default function ProductsListing() {
       // Merge with filter params
       filterParams.forEach((value, key) => baseParams.append(key, value));
       apiUrl = `/api/products?${baseParams.toString()}`;
-      console.log('[ProductsListing] SCENARIO 3: Main category only via products API:', urlParams.main_category);
     }
     else if (urlParams.subcategory && !urlParams.main_category) {
       // Scenario 4: Subcategory-only search using search API
       searchType = 'subcategory_only';
       apiUrl = `/api/products/?subcategory=${encodeURIComponent(urlParams.subcategory)}`;
-      console.log('[ProductsListing] SCENARIO 4: Subcategory-only via search API:', urlParams.subcategory);
     }
     else {
       // Fallback: Use regular products API with filters only
       searchType = 'regular_products';
       apiUrl = `/api/products?${filterParams.toString()}`;
-      console.log('[ProductsListing] FALLBACK: Regular products API with filters');
     }
 
-    console.log('[ProductsListing] Making API request to:', apiUrl);
     const res = await apiRequest(apiUrl);
     
     if (!res.ok) {
-      console.error('[ProductsListing] API request failed:', res.status, res.statusText);
       throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
     }
     
     const data = await res.json();
-    console.log('[ProductsListing] API response:', data);
     
     // Handle different response formats
     let products = [];
@@ -256,19 +303,11 @@ export default function ProductsListing() {
     if (searchType === 'regular_products' || searchType === 'main_category_with_subcategory' || searchType === 'main_category_only') {
       // Regular products API returns array directly
       products = Array.isArray(data) ? data : [];
-      console.log('[ProductsListing] Regular products API returned:', products.length, 'products');
     } else {
       // Search API returns structured response
       if (data.success && data.products) {
         products = data.products;
-        console.log(`[ProductsListing] Search API (${data.searchType}) returned:`, products.length, 'products');
-        
-        // Log subcategory grouping for main category searches
-        if (data.subcategories) {
-          console.log('[ProductsListing] Subcategories found:', Object.keys(data.subcategories));
-        }
       } else {
-        console.warn('[ProductsListing] Search API returned no products or error:', data.message);
         products = [];
       }
     }
@@ -304,14 +343,14 @@ export default function ProductsListing() {
       (p as any)._normalizedDescription = p.description ? String(p.description).toLowerCase() : '';
     });
 
-    console.log('ProductsListing: API returned', products.length, 'products');
+
 
     // For direct category navigation (from FlowerCategory clicks),
     // trust the backend response and skip client-side filtering to avoid removing valid products
     const isDirectCategoryNavigation = !!(urlParams.main_category) && !urlParams.search;
     
     if (isDirectCategoryNavigation) {
-      console.log('ProductsListing: Direct category navigation detected — trusting backend response (count=' + products.length + ')');
+
       return products;
     }
 
@@ -328,22 +367,13 @@ export default function ProductsListing() {
     );
 
     if (hasActiveFilter) {
-      console.log('ProductsListing: Active filters detected — returning API results without further client-side filtering (count=' + data.length + ')');
+
       return data;
     }
 
     // Enhanced CLIENT-SIDE filtering to support multiple filters (used when no explicit filters are set)
     const filteredData = data.filter((p: Product) => {
-      // Debug logging for Roses subcategory
-      if (urlParams.subcategory && urlParams.subcategory.toLowerCase() === 'roses') {
-        console.log('DEBUG: Checking product for Roses:', {
-          name: p.name,
-          category: p.category,
-          subcategory: p.subcategory,
-          nameMatch: p.name.toLowerCase().includes('roses'),
-          categoryMatch: p.category.toLowerCase().includes('roses')
-        });
-      }
+
       
       const price = parseFloat(p.price);
  
@@ -451,26 +481,7 @@ export default function ProductsListing() {
         filters.priceRange[1] < 10000
       );
 
-      // Debug logging for Roses filtering results
-      if (urlParams.subcategory && urlParams.subcategory.toLowerCase() === 'roses' && p.name.toLowerCase().includes('roses')) {
-        console.log('DEBUG: Filter results for', p.name, {
-          urlParams,
-          isUrlNavigation,
-          matchesSearch,
-          matchesPrice,
-          matchesCategory,
-          matchesSubcategory,
-          matchesFlowerTypes,
-          matchesArrangements,
-          matchesColor,
-          matchesFeatured,
-          matchesInStock,
-          matchesBestSeller,
-          finalResult: matchesSearch && matchesPrice && matchesCategory && matchesSubcategory && 
-                     matchesFlowerTypes && matchesArrangements && matchesColor && 
-                     matchesFeatured && matchesInStock && matchesBestSeller
-        });
-      }
+
  
   // If explicit filters are active, allow products that match the filters even if the top-level
   // URL category doesn't textually match the product.category string. This helps when product
@@ -489,12 +500,15 @@ export default function ProductsListing() {
         matchesFeatured && matchesInStock && matchesBestSeller;
     });
     
-    console.log('ProductsListing: After filtering,', filteredData.length, 'products remain');
+
     return filteredData;
   },
  
   refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  refetchOnMount: false,
   staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000, // Keep data cached longer
 });
 
  
@@ -519,8 +533,7 @@ export default function ProductsListing() {
     search: searchQuery.trim() || null,
   });
 
-  // force refresh
-  setForceRefetch(prev => prev + 1);
+  // Query will automatically refetch due to key change
 };
 
  
@@ -855,13 +868,12 @@ export default function ProductsListing() {
                     const newQuery = params.toString();
                     window.history.pushState({}, '', `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`);
 
-                    // Keep urlParams in sync and trigger refetch
+                    // Keep urlParams in sync - query will refetch automatically
                     setUrlParams({
                       main_category: params.get('main_category'),
                       subcategory: params.get('subcategory'),
                       search: params.get('search')
                     });
-                    setForceRefetch(prev => prev + 1);
                   }}
                 />
                 <span className="text-xs text-gray-600">
