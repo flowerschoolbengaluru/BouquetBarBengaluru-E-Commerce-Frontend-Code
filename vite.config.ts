@@ -34,9 +34,9 @@ export default defineConfig(({ mode }) => ({
     ...(mode === 'development' && {
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: 'https://flowerschoolbengaluru.com',
           changeOrigin: true,
-          secure: false
+          secure: true
         }
       }
     })

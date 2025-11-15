@@ -49,10 +49,10 @@ cd ../flowerschoolbengaluru-back-end && npm run dev  # Start backend server
 ```
 
 ### Environment Configuration
-- **Development**: `VITE_API_URL=http://localhost:5000` (backend server)
-- **Production**: `VITE_API_URL=https://flowerschoolbengaluru.com`
-- **API Client**: Environment detection in `lib/queryClient.ts`
-- **Database**: Drizzle config in `drizzle.config.ts` requires `DATABASE_URL`
+- **Development**: Vite dev proxy forwards `/api` requests to `localhost:5000`
+- **Production**: `VITE_API_URL=https://flowerschoolbengaluru.com` (defaults to production if unset)
+- **API Client**: Environment detection in `lib/queryClient.ts` with smart URL resolution
+- **Database**: Drizzle config in `drizzle.config.ts` requires `DATABASE_URL` (migrations only)
 
 ## Core State Management Patterns
 
@@ -187,16 +187,40 @@ const {
 const { user, isAuthenticated, login, logout } = useAuth();
 ```
 
-## Common Development Gotcas
+### URL State Management Pattern (`ProductsListing.tsx`)
+```typescript
+// Reactive URL parameter system for filters and search
+const [urlParams, setUrlParams] = useState(() => {
+  const searchParams = new URLSearchParams(window.location.search);
+  return {
+    main_category: searchParams.get('main_category') ? decodeURIComponent(searchParams.get('main_category')!) : null,
+    subcategory: searchParams.get('subcategory') ? decodeURIComponent(searchParams.get('subcategory')!) : null,
+    search: searchParams.get('search') ? decodeURIComponent(searchParams.get('search')!) : null,
+  };
+});
+
+// Listen for URL changes (from navigation, ShopNav, etc.)
+useEffect(() => {
+  const handleUrlChange = () => {
+    // Parse new URL parameters and update local state
+  };
+  window.addEventListener('popstate', handleUrlChange);
+  return () => window.removeEventListener('popstate', handleUrlChange);
+}, []);
+```
+
+## Common Development Gotchas & Patterns
 
 1. **Multi-Project Workspace**: Ensure you're in correct directory (`flowerschoolbengaluru-e-commese/`)
-2. **API Base URL**: Development uses `localhost:5000`, production uses same domain
-3. **Router Differences**: Wouter uses `useLocation()` not `useNavigate()` 
-4. **Image Fields**: 5 separate image properties - check which one contains actual data
-5. **Stock Fields**: Both `stockquantity` and `stockQuantity` exist for compatibility
-6. **Auth Storage**: sessionStorage means auth doesn't persist across browser restarts
+2. **API Proxy**: Development uses Vite proxy (see `vite.config.ts`) - `/api` routes auto-forward
+3. **Router Differences**: Wouter uses `useLocation()` and `setLocation()`, not React Router's `useNavigate()`
+4. **Image Fields**: Products have 5 image properties (`imagefirst` through `imagefive`) - check which contains data
+5. **Stock Fields**: Both `stockquantity` (backend) and `stockQuantity` (frontend) exist for compatibility
+6. **Auth Storage**: Uses sessionStorage - auth doesn't persist across browser restarts by design
 7. **File Naming**: Pages are PascalCase, components are kebab-case (mixed convention)
-8. **Category Context**: Large components like `FlowerCategory.tsx` (1,100+ lines) use local context providers
+8. **Large Components**: `ProductsListing.tsx` (1,200+ lines) manages complex filtering with URL state sync
+9. **URL State Management**: Search/filter params are synced with browser URL for shareable links
+10. **Best Seller Field**: Products use both `isbestseller` and `isBestSeller` for backend compatibility
 
 ## Quick Start Checklist
 
