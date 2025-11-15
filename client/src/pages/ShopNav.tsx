@@ -14,24 +14,93 @@ import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import type { User as UserType } from "@shared/schema";
 import FlowerCategory from "./FlowerCategory";
 
+// Category detection mappings
+const mainCategoryMapping = {
+  'occasion': ['occasion', 'occasions', 'celebration', 'special event', 'birthday', 'anniversary', 'wedding', 'valentine', 'valentines', 'mothers day', 'fathers day', 'graduation', 'congratulations', 'get well soon'],
+  'arrangements': ['arrangement', 'arrangements', 'bouquet', 'bouquets', 'basket', 'baskets', 'box', 'boxes', 'vase', 'vases', 'centerpiece', 'centerpieces', 'garland', 'garlands', 'wreath', 'wreaths'],
+  'flower-types': ['flowers', 'flower', 'rose', 'roses', 'lily', 'lilies', 'tulip', 'tulips', 'orchid', 'orchids', 'carnation', 'carnations', 'sunflower', 'sunflowers', 'mixed flowers', 'baby breath', 'chrysanthemum', 'hydrangea', 'anthurium', 'calla lilies', 'gerbera', 'gerberas', 'peony', 'peonies'],
+  'gift-combo': ['gift', 'gifts', 'combo', 'combos', 'hamper', 'hampers', 'chocolate', 'chocolates', 'cake', 'cakes', 'teddy', 'teddies', 'wine', 'fruits', 'cheese', 'nuts', 'greeting cards', 'customized gifts', 'perfume', 'jewelry', 'scented candles', 'personalized items'],
+  'event-decoration': ['event', 'events', 'venue', 'venues', 'decoration', 'decorations', 'wedding decor', 'party', 'parties', 'corporate event', 'stage', 'backdrop', 'car decoration', 'temple', 'pooja', 'entrance', 'table centerpieces', 'aisle', 'archway', 'ceiling', 'wall decorations', 'outdoor event'],
+  'services': ['service', 'services', 'delivery', 'same day', 'next day', 'subscription', 'subscriptions', 'message cards', 'international delivery', 'express delivery', 'scheduled delivery', 'workshop', 'workshops', 'consultation', 'florist services'],
+  'memorial': ['memorial', 'sympathy', 'funeral', 'condolence', 'remembrance', 'pet memorial', 'funeral wreaths', 'condolence bouquets', 'memorial sprays', 'casket arrangements', 'funeral home', 'church arrangements', 'graveside flowers', 'memorial service', 'living tributes'],
+  'corporate': ['corporate', 'office', 'business', 'reception', 'lobby', 'desk flowers', 'reception area', 'corporate gifting', 'brand themed', 'conference room', 'executive office', 'lobby displays', 'corporate accounts', 'volume discounts', 'branded arrangements']
+};
+
+const subcategoryMapping = {
+  "Father's Day": ["father's day", "fathers day", "dad day", "papa day"],
+  "Mother's Day": ["mother's day", "mothers day", "mom day", "mama day"],
+  "Valentine's Day": ["valentine's day", "valentines day", "valentine", "valentines"],
+  "Self-Flowers (self-love / pampering)": ["self flowers", "self love", "pampering", "self care"],
+  "Sister Love": ["sister love", "sister", "sisters"],
+  "Brother Love": ["brother love", "brother", "brothers"],
+  "Friendship Day": ["friendship day", "friendship", "friends"],
+  "Anniversary": ["anniversary", "anniversaries"],
+  "Birthday": ["birthday", "birthdays", "bday"],
+  "Get Well Soon / Recovery Flowers": ["get well soon", "recovery flowers", "get well", "recovery", "hospital flowers"],
+  "I'm Sorry Flowers": ["i'm sorry", "sorry flowers", "apology", "forgiveness"],
+  "I Love You Flowers": ["i love you", "love flowers", "romantic"],
+  "Congratulations Flowers": ["congratulations", "congrats", "celebration"],
+  "Graduation Day Flowers": ["graduation", "graduation day", "grad day"],
+  "Promotion / Success Party Flowers": ["promotion", "success party", "achievement"],
+  "Bouquets (hand-tied, wrapped)": ["bouquet", "bouquets", "hand tied", "wrapped"],
+  "Flower Baskets": ["flower basket", "flower baskets", "basket", "baskets"],
+  "Flower Boxes": ["flower box", "flower boxes", "box", "boxes"],
+  "Vase Arrangements": ["vase arrangement", "vase arrangements", "vase", "vases"],
+  "Floral Centerpieces": ["centerpiece", "centerpieces", "table arrangement"],
+  "Flower Garlands": ["garland", "garlands", "flower garland"],
+  "Lobby Arrangements": ["lobby arrangement", "lobby flowers", "reception flowers"],
+  "Exotic Arrangements": ["exotic", "exotic flowers", "unique arrangements"],
+  "Floral Wreaths": ["wreath", "wreaths", "floral wreath"],
+  "Custom Arrangements": ["custom", "custom arrangement", "personalized"],
+  "Roses": ["rose", "roses", "red roses", "white roses", "pink roses"],
+  "Tulips": ["tulip", "tulips"],
+  "Lilies": ["lily", "lilies"],
+  "Carnations": ["carnation", "carnations"],
+  "Orchids": ["orchid", "orchids"],
+  "Sunflowers": ["sunflower", "sunflowers"],
+  "Mixed Flowers": ["mixed flowers", "mixed", "assorted flowers", "variety flowers", "combination flowers"],
+  "Baby's Breath": ["baby's breath", "babys breath", "baby breath"],
+  "Chrysanthemum": ["chrysanthemum", "mums", "chrysanthemums"],
+  "Hydrangea": ["hydrangea", "hydrangeas"],
+  "Anthurium": ["anthurium", "anthuriums"],
+  "Calla Lilies": ["calla lily", "calla lilies", "calla"],
+  "Gerberas": ["gerbera", "gerberas", "gerbera daisy"],
+  "Peonies": ["peony", "peonies"]
+};
+
+// Detection functions
+const detectMainCategory = (searchQuery: string): string | null => {
+  const query = searchQuery.toLowerCase().trim();
+  for (const [categoryId, keywords] of Object.entries(mainCategoryMapping)) {
+    if (keywords.some(keyword => query.includes(keyword))) {
+      return categoryId;
+    }
+  }
+  return null;
+};
+
+const detectSubcategory = (searchQuery: string): string | null => {
+  const query = searchQuery.toLowerCase().trim();
+  for (const [subcategoryName, variations] of Object.entries(subcategoryMapping)) {
+    if (subcategoryName.toLowerCase() === query) {
+      return subcategoryName;
+    }
+    for (const variation of variations) {
+      if (variation === query || query.includes(variation) || variation.includes(query)) {
+        return subcategoryName;
+      }
+    }
+  }
+  return null;
+};
+
 export default function ShopNav() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [showCartModal, setShowCartModal] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchSuggestions, setSearchSuggestions] = useState<Array<{item: string, category: string}>>([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [animatedText, setAnimatedText] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [categoryIndex, setCategoryIndex] = useState(0);
-  
-  // Performance optimization - use requestAnimationFrame for smoother animations
-  const rafRef = useRef<number | null>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
   const cartModalRef = useRef<boolean>(false);
-  const lastUpdateTime = useRef<number>(0);
 
   // User query following project patterns
   const { data: user } = useQuery<UserType>({
@@ -52,33 +121,7 @@ export default function ShopNav() {
     removeFromCart
   } = useCart();
 
-  // Memoize categories to prevent recreation on every render
-  const categories = useMemo(() => [
-    "Birthday Flowers",
-    "Anniversary Flowers", 
-    "Wedding Flowers",
-    "Valentine's Day Flowers",
-    "Roses",
-    "Tulips",
-    "Lilies",
-    "Orchids",
-    "Sympathy Flowers",
-    "Get Well Soon Flowers",
-    "Congratulations Flowers",
-    "Flower Bouquets",
-    "Flower Baskets",
-    "Vase Arrangements",
-    "Floral Centerpieces",
-    "Dried Flower Arrangements",
-    "Floral Gift Hampers",
-    "Flower with Chocolates",
-    "Wedding Floral Decor",
-    "Corporate Event Flowers",
-    "Garlands",
-    "Luxury Rose Boxes",
-    "Same-Day Flower Delivery",
-    "Customized Message Cards"
-  ], []);
+
 
   // Logout mutation following project patterns
   const logoutMutation = useMutation({
@@ -131,149 +174,9 @@ export default function ShopNav() {
     }, 200);
   }, []);
 
-  // Optimized search handlers with debouncing
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    
-    if (value.trim()) {
-      // Use requestAnimationFrame to avoid blocking the main thread
-      requestAnimationFrame(() => {
-        const suggestions = categories
-          .filter(cat => cat.toLowerCase().includes(value.toLowerCase()))
-          .slice(0, 5)
-          .map(cat => ({ item: cat, category: "Flowers" }));
-        
-        setSearchSuggestions(suggestions);
-        setShowSuggestions(suggestions.length > 0);
-      });
-    } else {
-      setShowSuggestions(false);
-      setSearchSuggestions([]);
-    }
-  }, [categories]);
 
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      setShowSuggestions(false);
-      const searchParams = new URLSearchParams();
-      searchParams.set('search', searchQuery.trim());
-      const newUrl = `/products?${searchParams.toString()}`;
-      
-      // If already on products page, use replaceState + custom event to force update
-      if (window.location.pathname === '/products') {
-        window.history.pushState({}, '', newUrl);
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      } else {
-        setLocation(newUrl);
-      }
-    }
-    if (e.key === "Escape") {
-      setShowSuggestions(false);
-    }
-  }, [searchQuery, setLocation]);
 
-  const handleSuggestionClick = useCallback((suggestion: {item: string, category: string}) => {
-    setSearchQuery("");
-    setShowSuggestions(false);
-    const searchParams = new URLSearchParams();
-    searchParams.set('search', suggestion.item);
-    const newUrl = `/products?${searchParams.toString()}`;
-    
-    // If already on products page, use replaceState + custom event to force update
-    if (window.location.pathname === '/products') {
-      window.history.pushState({}, '', newUrl);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    } else {
-      setLocation(newUrl);
-    }
-  }, [setLocation]);
 
-  // Optimized typing animation with requestAnimationFrame
-  const animateTyping = useCallback(() => {
-    if (searchQuery) return;
-    
-    const now = Date.now();
-    // Throttle updates to max 60fps
-    if (now - lastUpdateTime.current < 16) {
-      rafRef.current = requestAnimationFrame(animateTyping);
-      return;
-    }
-    lastUpdateTime.current = now;
-    
-    const currentCategory = categories[categoryIndex];
-    
-    if (isDeleting) {
-      setAnimatedText(prev => {
-        const newText = currentCategory.substring(0, prev.length - 1);
-        if (newText === "") {
-          setIsDeleting(false);
-          setCategoryIndex(prev => (prev + 1) % categories.length);
-        }
-        return newText;
-      });
-    } else {
-      setAnimatedText(prev => {
-        const newText = currentCategory.substring(0, prev.length + 1);
-        if (newText === currentCategory) {
-          setTimeout(() => setIsDeleting(true), 1000);
-        }
-        return newText;
-      });
-    }
-    
-    // Continue animation
-    rafRef.current = requestAnimationFrame(animateTyping);
-  }, [searchQuery, categories, categoryIndex, isDeleting]);
-
-  // Start typing animation
-  useEffect(() => {
-    if (!searchQuery) {
-      rafRef.current = requestAnimationFrame(animateTyping);
-    }
-    
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, [searchQuery, animateTyping]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
-
-  const handleInputFocus = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-    }
-  }, []);
-
-  // Optimized click outside handler with throttling
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
-    const handleClickOutside = (event: MouseEvent) => {
-      // Throttle the handler to prevent excessive calls
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-          setShowSuggestions(false);
-        }
-      }, 10);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      clearTimeout(timeout);
-    };
-  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -474,6 +377,8 @@ export default function ShopNav() {
 
               {/* Mobile Action Buttons */}
               <div className="flex items-center gap-2">
+
+
                 {/* Cart Button - Performance optimized */}
                 <Button
                   variant="ghost"
@@ -502,57 +407,30 @@ export default function ShopNav() {
               </div>
             </div>
 
-            {/* Mobile Search Bar */}
-            <div className="pb-3" ref={searchRef}>
-              <div className="relative">
-                <Input
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onKeyDown={handleSearchKeyDown}
-                  onFocus={() => {
-                    handleInputFocus();
-                    if (searchQuery && searchSuggestions.length > 0) {
-                      setShowSuggestions(true);
-                    }
-                  }}
-                  className="pl-4 pr-10 py-2.5 w-full rounded-lg border border-gray-300 focus:border-pink-400 focus:ring-1 focus:ring-pink-200 shadow-sm transition-all duration-200 text-sm h-10 transform-gpu"
-                />
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none max-w-[60%]">
-                  <span className="text-gray-500 font-medium text-xs truncate">
-                    {!searchQuery ? `${animatedText}` : ""}
-                    {!searchQuery && <span className="animate-pulse font-bold">|</span>}
-                  </span>
-                </div>
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
 
-                {/* Mobile Search Suggestions */}
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto transform-gpu">
-                    <div className="p-2">
-                      <div className="text-xs text-gray-500 px-3 py-2 border-b border-gray-100">
-                        Search Suggestions
-                      </div>
-                      {searchSuggestions.map((suggestion, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between px-3 py-2 hover:bg-pink-50 cursor-pointer rounded-md transition-colors transform-gpu"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                        >
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-sm font-medium text-gray-900 truncate">
-                              {suggestion.item}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              in {suggestion.category}
-                            </span>
-                          </div>
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0 ml-2" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+
+            {/* Mobile Search Bar */}
+            <div className="px-4 pb-3">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const searchTerm = formData.get('search') as string;
+                if (searchTerm.trim()) {
+                  window.location.href = `/products?search=${encodeURIComponent(searchTerm.trim())}`;
+                }
+              }}>
+                <div className="relative">
+                  <input
+                    name="search"
+                    type="text"
+                    placeholder="Search flowers, occasions..."
+                    className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-1 focus:ring-pink-200 focus:outline-none transition-all duration-200 text-sm"
+                  />
+                  <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <Search className="w-4 h-4 text-gray-500 hover:text-pink-500 transition-colors" />
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Mobile Menu Dropdown */}
@@ -653,61 +531,36 @@ export default function ShopNav() {
             </Link>
 
             {/* Desktop Search Bar */}
-            <div className="flex-1 max-w-xl mx-4 md:mx-6" ref={searchRef}>
-              <div className="relative">
-                <Input
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onKeyDown={handleSearchKeyDown}
-                  onFocus={() => {
-                    handleInputFocus();
-                    if (searchQuery && searchSuggestions.length > 0) {
-                      setShowSuggestions(true);
-                    }
-                  }}
-                  className="pl-4 pr-10 py-2.5 w-full rounded-xl border border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-200 shadow-sm transition-all duration-200 font-sans text-sm md:text-base h-10 md:h-11 transform-gpu"
-                />
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none w-3/4">
-                  <span className="text-gray-500 font-medium text-xs md:text-sm truncate">
-                    {!searchQuery ? `Searching for ${animatedText}` : ""}
-                    {!searchQuery && <span className="animate-pulse font-bold">|</span>}
-                  </span>
+            <div className="flex-1 max-w-xl mx-4 md:mx-6">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const searchTerm = formData.get('search') as string;
+                if (searchTerm.trim()) {
+                  window.location.href = `/products?search=${encodeURIComponent(searchTerm.trim())}`;
+                }
+              }}>
+                <div className="relative">
+                  <input
+                    name="search"
+                    type="text"
+                    placeholder="Search for flowers, occasions, arrangements..."
+                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl focus:border-pink-400 focus:ring-1 focus:ring-pink-200 focus:outline-none transition-all duration-200 text-sm md:text-base"
+                  />
+                  <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <Search className="w-4 h-4 text-gray-500 hover:text-pink-500 transition-colors" />
+                  </button>
                 </div>
-
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-
-                {/* Desktop Search Suggestions */}
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto transform-gpu">
-                    <div className="p-2">
-                      <div className="text-xs text-gray-500 px-3 py-2 border-b border-gray-100">
-                        Search Suggestions
-                      </div>
-                      {searchSuggestions.map((suggestion, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between px-3 py-2 hover:bg-pink-50 cursor-pointer rounded-md transition-colors transform-gpu"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">
-                              {suggestion.item}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              in {suggestion.category}
-                            </span>
-                          </div>
-                          <Search className="w-3 h-3 text-gray-400" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </form>
             </div>
 
             {/* Desktop Action Buttons */}
             <div className="flex items-center gap-3 md:gap-1 relative">
+              <div className="relative group">
+                {/* Search Button */}
+
+              </div>
+
               <div className="relative group">
                 {/* Cart Button - Performance optimized */}
                 <Button

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import ShopNav from './ShopNav';
 import Footer from '@/components/footer';
 import { ChevronDown, ChevronUp, Filter, X, Search, ShoppingCart } from 'lucide-react';
@@ -46,12 +47,107 @@ interface FilterState {
   featured: boolean;
   bestSeller: boolean;
 }
+// Main category mapping for search - moved outside component
+const mainCategoryMapping = {
+  'occasion': ['occasion', 'occasions', 'celebration', 'special event', 'birthday', 'anniversary', 'wedding', 'valentine', 'valentines', 'mothers day', 'fathers day', 'graduation', 'congratulations', 'get well soon'],
+  'arrangements': ['arrangement', 'arrangements', 'bouquet', 'bouquets', 'basket', 'baskets', 'box', 'boxes', 'vase', 'vases', 'centerpiece', 'centerpieces', 'garland', 'garlands', 'wreath', 'wreaths'],
+  'flower-types': ['flowers', 'flower', 'rose', 'roses', 'lily', 'lilies', 'tulip', 'tulips', 'orchid', 'orchids', 'carnation', 'carnations', 'sunflower', 'sunflowers', 'mixed flowers', 'baby breath', 'chrysanthemum', 'hydrangea', 'anthurium', 'calla lilies', 'gerbera', 'gerberas', 'peony', 'peonies'],
+  'gift-combo': ['gift', 'gifts', 'combo', 'combos', 'hamper', 'hampers', 'chocolate', 'chocolates', 'cake', 'cakes', 'teddy', 'teddies', 'wine', 'fruits', 'cheese', 'nuts', 'greeting cards', 'customized gifts', 'perfume', 'jewelry', 'scented candles', 'personalized items'],
+  'event-decoration': ['event', 'events', 'venue', 'venues', 'decoration', 'decorations', 'wedding decor', 'party', 'parties', 'corporate event', 'stage', 'backdrop', 'car decoration', 'temple', 'pooja', 'entrance', 'table centerpieces', 'aisle', 'archway', 'ceiling', 'wall decorations', 'outdoor event'],
+  'services': ['service', 'services', 'delivery', 'same day', 'next day', 'subscription', 'subscriptions', 'message cards', 'international delivery', 'express delivery', 'scheduled delivery', 'workshop', 'workshops', 'consultation', 'florist services'],
+  'memorial': ['memorial', 'sympathy', 'funeral', 'condolence', 'remembrance', 'pet memorial', 'funeral wreaths', 'condolence bouquets', 'memorial sprays', 'casket arrangements', 'funeral home', 'church arrangements', 'graveside flowers', 'memorial service', 'living tributes'],
+  'corporate': ['corporate', 'office', 'business', 'reception', 'lobby', 'desk flowers', 'reception area', 'corporate gifting', 'brand themed', 'conference room', 'executive office', 'lobby displays', 'corporate accounts', 'volume discounts', 'branded arrangements']
+};
+
+// Subcategory mapping with variations for better search matching - moved outside component
+const subcategoryMapping = {
+  // Occasion subcategories with variations
+  "Father's Day": ["father's day", "fathers day", "dad day", "papa day"],
+  "Mother's Day": ["mother's day", "mothers day", "mom day", "mama day"],
+  "Valentine's Day": ["valentine's day", "valentines day", "valentine", "valentines"],
+  "Self-Flowers (self-love / pampering)": ["self flowers", "self love", "pampering", "self care"],
+  "Sister Love": ["sister love", "sister", "sisters"],
+  "Brother Love": ["brother love", "brother", "brothers"],
+  "Friendship Day": ["friendship day", "friendship", "friends"],
+  "Anniversary": ["anniversary", "anniversaries"],
+  "Birthday": ["birthday", "birthdays", "bday"],
+  "Get Well Soon / Recovery Flowers": ["get well soon", "recovery flowers", "get well", "recovery", "hospital flowers"],
+  "I'm Sorry Flowers": ["i'm sorry", "sorry flowers", "apology", "forgiveness"],
+  "I Love You Flowers": ["i love you", "love flowers", "romantic"],
+  "Congratulations Flowers": ["congratulations", "congrats", "celebration"],
+  "Graduation Day Flowers": ["graduation", "graduation day", "grad day"],
+  "Promotion / Success Party Flowers": ["promotion", "success party", "achievement"],
+  
+  // Arrangement subcategories with variations
+  "Bouquets (hand-tied, wrapped)": ["bouquet", "bouquets", "hand tied", "wrapped"],
+  "Flower Baskets": ["flower basket", "flower baskets", "basket", "baskets"],
+  "Flower Boxes": ["flower box", "flower boxes", "box", "boxes"],
+  "Vase Arrangements": ["vase arrangement", "vase arrangements", "vase", "vases"],
+  "Floral Centerpieces": ["centerpiece", "centerpieces", "table arrangement"],
+  "Flower Garlands": ["garland", "garlands", "flower garland"],
+  "Lobby Arrangements": ["lobby arrangement", "lobby flowers", "reception flowers"],
+  "Exotic Arrangements": ["exotic", "exotic flowers", "unique arrangements"],
+  "Floral Wreaths": ["wreath", "wreaths", "floral wreath"],
+  "Custom Arrangements": ["custom", "custom arrangement", "personalized"],
+  
+  // Flower type subcategories with variations
+  "Roses": ["rose", "roses", "red roses", "white roses", "pink roses"],
+  "Tulips": ["tulip", "tulips"],
+  "Lilies": ["lily", "lilies"],
+  "Carnations": ["carnation", "carnations"],
+  "Orchids": ["orchid", "orchids"],
+  "Sunflowers": ["sunflower", "sunflowers"],
+  "Mixed Flowers": ["mixed flowers", "mixed", "assorted flowers", "variety flowers", "combination flowers"],
+  "Baby's Breath": ["baby's breath", "babys breath", "baby breath"],
+  "Chrysanthemum": ["chrysanthemum", "mums", "chrysanthemums"],
+  "Hydrangea": ["hydrangea", "hydrangeas"],
+  "Anthurium": ["anthurium", "anthuriums"],
+  "Calla Lilies": ["calla lily", "calla lilies", "calla"],
+  "Gerberas": ["gerbera", "gerberas", "gerbera daisy"],
+  "Peonies": ["peony", "peonies"]
+};
+
+// Function to detect main category from search query - moved outside component
+const detectMainCategory = (searchQuery: string): string | null => {
+  const query = searchQuery.toLowerCase().trim();
+  for (const [categoryId, keywords] of Object.entries(mainCategoryMapping)) {
+    if (keywords.some(keyword => query.includes(keyword))) {
+      return categoryId;
+    }
+  }
+  return null;
+};
+
+// Function to detect subcategory from search query - moved outside component
+const detectSubcategory = (searchQuery: string): string | null => {
+  const query = searchQuery.toLowerCase().trim();
+  
+  // Search through all subcategories and their variations
+  for (const [subcategoryName, variations] of Object.entries(subcategoryMapping)) {
+    // Check if query matches the main subcategory name
+    if (subcategoryName.toLowerCase() === query) {
+      return subcategoryName;
+    }
+    
+    // Check if query matches any variation
+    for (const variation of variations) {
+      if (variation === query || query.includes(variation) || variation.includes(query)) {
+        return subcategoryName;
+      }
+    }
+  }
+  
+  return null;
+};
  
 export default function ProductsListing() {
   const [location, setLocation] = useLocation();
+  const search = useSearch();
   
   // Force re-render when URL changes by tracking the full search string
   const [currentSearch, setCurrentSearch] = useState(window.location.search);
+  
+
  
   // Get URL parameters and create a reactive system
   const [urlParams, setUrlParams] = useState(() => {
@@ -65,9 +161,9 @@ export default function ProductsListing() {
  
   // Mobile filter drawer state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
- 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState(urlParams.search || '');
+  
+  // Local search state
+  const [localSearchTerm, setLocalSearchTerm] = useState(urlParams.search || '');
  
   const [filters, setFilters] = useState<FilterState>({
     priceRange: [0, 10000],
@@ -82,6 +178,46 @@ export default function ProductsListing() {
  
   const cart = useCart();
   const { toast } = useToast();
+
+  const [filterConfigs, setFilterConfigs] = useState({
+    priceRanges: [
+      { label: '500 to 999', value: [500, 999] as [number, number] },
+      { label: '1000 to 1499', value: [1000, 1499] as [number, number] },
+      { label: '1500 to 2999', value: [1500, 2999] as [number, number] },
+      { label: '3000 and Above', value: [3000, 10000] as [number, number] }
+    ] as PriceRange[],
+    flowerTypes: [
+      { label: 'Roses', count: 0 },
+      { label: 'Lilies', count: 0 },
+      { label: 'Tulips', count: 0 },
+      { label: 'Orchids', count: 0 },
+      { label: 'Carnations', count: 0 },
+      { label: 'Mixed Flowers', count: 0 }
+    ],
+    arrangements: [
+      { label: 'Bouquets', count: 0 },
+      { label: 'Vase Arrangements', count: 0 },
+      { label: 'Flower Box', count: 0 },
+      { label: 'Basket Arrangements', count: 0 }
+    ],
+    colors: [
+      { label: 'Red', count: 0 },
+      { label: 'Pink', count: 0 },
+      { label: 'White', count: 0 },
+      { label: 'Yellow', count: 0 },
+      { label: 'Purple', count: 0 },
+      { label: 'Mixed', count: 0 }
+    ]
+  });
+
+  const [openSections, setOpenSections] = useState({
+    price: true,
+    flowerTypes: true,
+    occasions: true,
+    arrangements: true,
+    colors: true,
+    additional: true
+  });
  
   // React to route/query changes so search works from anywhere (ShopNav, categories, etc.)
   useEffect(() => {
@@ -130,7 +266,9 @@ export default function ProductsListing() {
       const categoryChanged = newParams.main_category !== urlParams.main_category || newParams.subcategory !== urlParams.subcategory;
 
       setUrlParams(newParams);
-      setSearchQuery(newParams.search || '');
+      
+      // Sync local search term with URL
+      setLocalSearchTerm(newParams.search || '');
 
       if (categoryChanged) {
         // Clear all filters when category/subcategory changes
@@ -189,7 +327,7 @@ export default function ProductsListing() {
     };
   }, [location, currentSearch]); // Include currentSearch to catch all URL changes
 
-  // Immediate URL sync effect - runs on every render to catch rapid changes
+  // Immediate URL sync effect - runs when currentSearch changes
   useEffect(() => {
     const currentUrl = window.location.search;
     if (currentUrl !== currentSearch) {
@@ -203,7 +341,6 @@ export default function ProductsListing() {
       // Always update if URL changed
       setCurrentSearch(currentUrl);
       setUrlParams(newParams);
-      setSearchQuery(newParams.search || '');
       
       // Reset filters when category changes  
       if (newParams.main_category !== urlParams.main_category || newParams.subcategory !== urlParams.subcategory) {
@@ -219,9 +356,9 @@ export default function ProductsListing() {
         });
       }
     }
-  }); // No dependencies - runs on every render for immediate response
+  }, [currentSearch, urlParams.main_category, urlParams.subcategory]);
 
-
+  // Remove suggestion functions since search is handled by ShopNav
 
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
   queryKey: [
@@ -257,7 +394,7 @@ export default function ProductsListing() {
     if (urlParams.search) {
       // Scenario 1: Product name search using search API
       searchType = 'product_name_search';
-      apiUrl = `/api/products/?productname=${encodeURIComponent(urlParams.search)}`;
+      apiUrl = `/api/products/?name=${encodeURIComponent(urlParams.search)}`;
     }
     else if (urlParams.main_category && urlParams.subcategory) {
       // Scenario 2: Main category + subcategory navigation using products API
@@ -286,7 +423,8 @@ export default function ProductsListing() {
     else {
       // Fallback: Use regular products API with filters only
       searchType = 'regular_products';
-      apiUrl = `/api/products?${filterParams.toString()}`;
+      const queryString = filterParams.toString();
+      apiUrl = `/api/products${queryString ? `?${queryString}` : ''}`;
     }
 
     const res = await apiRequest(apiUrl);
@@ -304,8 +442,10 @@ export default function ProductsListing() {
       // Regular products API returns array directly
       products = Array.isArray(data) ? data : [];
     } else {
-      // Search API returns structured response
-      if (data.success && data.products) {
+      // Search API can return array directly or structured response
+      if (Array.isArray(data)) {
+        products = data;
+      } else if (data.success && data.products) {
         products = data.products;
       } else {
         products = [];
@@ -354,6 +494,11 @@ export default function ProductsListing() {
       return products;
     }
 
+    // For search queries, trust the backend search results and skip client-side filtering
+    if (urlParams.search) {
+      return products;
+    }
+
     // If the user has explicitly activated any filters, trust the backend response
     const hasActiveFilter = (
       filters.flowerTypes.length > 0 ||
@@ -367,12 +512,12 @@ export default function ProductsListing() {
     );
 
     if (hasActiveFilter) {
-
-      return data;
+      // Return the normalized products array, not the raw data response
+      return products;
     }
 
     // Enhanced CLIENT-SIDE filtering to support multiple filters (used when no explicit filters are set)
-    const filteredData = data.filter((p: Product) => {
+    const filteredData = products.filter((p: Product) => {
 
       
       const price = parseFloat(p.price);
@@ -511,65 +656,7 @@ export default function ProductsListing() {
   gcTime: 10 * 60 * 1000, // Keep data cached longer
 });
 
- 
-  // Handle search functionality
- const handleSearch = (e: React.FormEvent) => {
-  e.preventDefault();
 
-  const params = new URLSearchParams(window.location.search);
-
-  if (searchQuery.trim()) {
-    params.set("search", searchQuery.trim());
-  } else {
-    params.delete("search");
-  }
-
-  // ✅ Push URL so wouter detects change
-  window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
-
-  setUrlParams({
-    main_category: params.get("main_category"),
-    subcategory: params.get("subcategory"),
-    search: searchQuery.trim() || null,
-  });
-
-  // Query will automatically refetch due to key change
-};
-
- 
- const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  setSearchQuery(e.target.value);
-
-  const params = new URLSearchParams(window.location.search);
-
-  if (e.target.value.trim()) {
-    params.set("search", e.target.value.trim());
-  } else {
-    params.delete("search");
-  }
-
-  window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
-
-  setUrlParams({
-    main_category: params.get("main_category"),
-    subcategory: params.get("subcategory"),
-    search: e.target.value.trim() || null,
-  });
-};
-
- 
-  const clearSearch = () => {
-    setSearchQuery('');
-    const newUrl = window.location.pathname;
-    window.history.pushState({}, '', newUrl);
-   
-    // Update urlParams state to trigger refetch
-    setUrlParams({
-      main_category: null,
-      subcategory: null,
-      search: null
-    });
-  };
  
   // Handle navigation to specific category/subcategory
   const navigateToCategory = (main_category: string, subcategory?: string) => {
@@ -588,9 +675,6 @@ export default function ProductsListing() {
       subcategory: subcategory || null,
       search: null
     });
-   
-    // Reset search query
-    setSearchQuery('');
    
     // Clear all filters when switching to a different category
     setFilters({
@@ -612,37 +696,6 @@ export default function ProductsListing() {
     label: string;
     value: [number, number];
   }
- 
-  const [filterConfigs, setFilterConfigs] = useState({
-    priceRanges: [
-      { label: '500 to 999', value: [500, 999] as [number, number] },
-      { label: '1000 to 1499', value: [1000, 1499] as [number, number] },
-      { label: '1500 to 2999', value: [1500, 2999] as [number, number] },
-      { label: '3000 and Above', value: [3000, 10000] as [number, number] }
-    ] as PriceRange[],
-    flowerTypes: [
-      { label: 'Roses', count: 0 },
-      { label: 'Lilies', count: 0 },
-      { label: 'Tulips', count: 0 },
-      { label: 'Orchids', count: 0 },
-      { label: 'Carnations', count: 0 },
-      { label: 'Mixed Flowers', count: 0 }
-    ],
-    arrangements: [
-      { label: 'Bouquets', count: 0 },
-      { label: 'Vase Arrangements', count: 0 },
-      { label: 'Flower Box', count: 0 },
-      { label: 'Basket Arrangements', count: 0 }
-    ],
-    colors: [
-      { label: 'Red', count: 0 },
-      { label: 'Pink', count: 0 },
-      { label: 'White', count: 0 },
-      { label: 'Yellow', count: 0 },
-      { label: 'Purple', count: 0 },
-      { label: 'Mixed', count: 0 }
-    ]
-  });
  
   useEffect(() => {
     if (products) {
@@ -701,18 +754,7 @@ export default function ProductsListing() {
       subcategory: null,
       search: null
     });
-   
-    setSearchQuery('');
   };
- 
-  const [openSections, setOpenSections] = useState({
-    price: true,
-    flowerTypes: true,
-    occasions: true,
-    arrangements: true,
-    colors: true,
-    additional: true
-  });
  
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections(prev => ({
@@ -967,8 +1009,35 @@ export default function ProductsListing() {
       </div>
     </div>
   );
- 
-  // Handle loading state
+  // Handle searches that come from ShopNav by detecting category/subcategory
+  useEffect(() => {
+    if (urlParams.search) {
+      const query = urlParams.search.trim();
+      
+      // Try to detect if the search query is a main category
+      const mainCategory = detectMainCategory(query);
+      if (mainCategory) {
+        const newParams = new URLSearchParams();
+        newParams.set('main_category', mainCategory);
+        setLocation(`/products?${newParams.toString()}`, { replace: true });
+        return;
+      }
+
+      // Try to detect if the search query is a subcategory
+      const subcategory = detectSubcategory(query);
+      if (subcategory) {
+        const newParams = new URLSearchParams();
+        newParams.set('subcategory', subcategory);
+        setLocation(`/products?${newParams.toString()}`, { replace: true });
+        return;
+      }
+      
+      // If not a category/subcategory, keep it as a search query
+      // The query will handle it as a product name search
+    }
+  }, [urlParams.search, setLocation]);
+
+  // Handle loading state - check after all hooks are called
   if (isLoading) {
     return (
       <>
@@ -985,7 +1054,7 @@ export default function ProductsListing() {
       </>
     );
   }
- 
+
   // Check if current category should hide filters
   const shouldHideFilters = urlParams.main_category === 'Event' || urlParams.main_category === 'Venue';
 
@@ -1053,8 +1122,11 @@ export default function ProductsListing() {
               </div>
             )}
  
+    
+
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
               <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-900">{headingTitle}</h2>
                 {/* Mobile Filter Button */}
                 {!shouldHideFilters && (
                   <button
@@ -1137,8 +1209,16 @@ export default function ProductsListing() {
             )}
 
             {/* Responsive Products Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
-              {products?.slice(0, 240).map((product) => (
+            {!products || products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+                <div className="text-gray-500 text-lg mb-2">No products found</div>
+                <div className="text-gray-400 text-sm">
+                  {isLoading ? 'Loading...' : 'Try adjusting your search or filters'}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
+                {products.slice(0, 240).map((product) => (
                 <div
                   key={product.id}
                   className={`cursor-pointer bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 ${
@@ -1253,8 +1333,9 @@ export default function ProductsListing() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
