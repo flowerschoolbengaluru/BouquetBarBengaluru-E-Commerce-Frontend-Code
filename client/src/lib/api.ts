@@ -2,7 +2,6 @@
 const getApiUrl = (path: string) => {
   // For production, use the same domain but ensure backend is running
   const baseUrl = import.meta.env.VITE_API_URL || 'https://flowerschoolbengaluru.com';
-  //  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   
   // If path starts with /api, use it directly with base URL
   if (path.startsWith('/api')) {
