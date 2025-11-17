@@ -88,7 +88,7 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
         return;
       }
 
-      // Prefer Same Day/Express under 10km, otherwise prefer Standard/Regular
+      // Prefer Same Day/Express under 10km, otherwise prefer Next Day delivery
       const pickPreferred = () => {
         const lower = (s: string) => s.toLowerCase();
         const byName = (substrs: string[]) => availableOptions.find(opt => substrs.some(s => lower(opt.name).includes(s)));
@@ -97,8 +97,8 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
           // Try to pick Same Day first
           return byName(["same day", "express"]) || availableOptions[0];
         }
-        // 10km and above: prefer Standard/Regular
-        return byName(["standard", "regular"]) || availableOptions[0];
+        // 10km and above: prefer Next Day delivery
+        return byName(["next day", "next-day", "tomorrow"]) || byName(["standard", "regular"]) || availableOptions[0];
       };
 
       const preferred = pickPreferred();
@@ -225,7 +225,7 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
                 <p className="mt-1">
                   {pincodeDistance < 10 
                     ? "✓ Same Day delivery available for your location (distance under 10km)"
-                    : "⚠ Standard delivery only for your location (distance 10km or above)"
+                    : "📅 Next Day delivery recommended for your location (distance 10km or above)"
                   }
                 </p>
               </div>
