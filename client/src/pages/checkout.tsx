@@ -1941,12 +1941,18 @@ export default function Checkout() {
                                         <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                       </Button>
                                     </TableCell>
+                                  
                                   </TableRow>
+                                  
                                 );
                               })
                             )}
+                            
                           </TableBody>
                         </Table>
+                        <p className="text-sm text-green-600 mt-3">
+                          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+                        </p>
                       </div>
 
                       {!isLoading && items.length > 0 && (
@@ -2133,6 +2139,9 @@ export default function Checkout() {
                             <div className="p-4 bg-gray-50 rounded-lg">
                               <p className="text-sm">{getShippingAddressString()}</p>
                             </div>
+                            <p className="text-sm text-green-600 mt-3">
+                              <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+                            </p>
                           </div>
 
                           <Separator />

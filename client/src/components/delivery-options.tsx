@@ -266,6 +266,11 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
           ))}
         </RadioGroup>
       </CardContent>
+      <div className="px-6 pb-4">
+        <p className="text-sm text-green-600">
+          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+        </p>
+      </div>
     </Card>
   );
 }
