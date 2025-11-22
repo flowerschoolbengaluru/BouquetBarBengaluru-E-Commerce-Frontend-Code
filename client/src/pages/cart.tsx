@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShoppingCart, Trash2, Plus, Minus, Tag, X, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/user-auth";
 
 export default function Cart() {
   const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
   const { 
     items: cartItems, 
     updateQuantity, 
@@ -93,12 +95,8 @@ export default function Cart() {
   };
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) {
-      toast({
-        title: "Cart is empty",
-        description: "Please add items to your cart before checking out",
-        variant: "destructive",
-      });
+    if (!isAuthenticated) {
+      setLocation("/signin");
       return;
     }
     setLocation("/checkout");

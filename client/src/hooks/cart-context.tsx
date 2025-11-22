@@ -3,11 +3,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Address, DeliveryOption } from "@shared/schema";
 
+// --- Types and Interfaces ---
 export type PaymentMethod = 'card' | 'upi' | 'netbanking' | 'cod' | 'qrcode';
 
 export interface PaymentData {
   selectedMethod: PaymentMethod | null;
-  // Store gateway transaction id when payment is completed via external gateway (Razorpay)
   paymentTransactionId?: string;
   cardData?: {
     holderName: string;
@@ -32,11 +32,11 @@ export interface PaymentData {
   };
 }
 
-interface CartItem extends Product {
+export interface CartItem extends Product {
   quantity: number;
 }
 
-interface AppliedCoupon {
+export interface AppliedCoupon {
   id: string;
   code: string;
   type: string;
@@ -45,7 +45,7 @@ interface AppliedCoupon {
   maxDiscount?: number;
 }
 
-interface CartState {
+export interface CartState {
   items: CartItem[];
   totalItems: number;
   totalPrice: number;
@@ -62,7 +62,7 @@ interface CartState {
   couponError: string | null;
 }
 
-interface CartContextType extends CartState {
+export interface CartContextType extends CartState {
   addToCart: (product: Product, quantity?: number) => Promise<void>;
   removeFromCart: (productId: string) => Promise<void>;
   updateQuantity: (productId: string, quantity: number) => Promise<void>;
@@ -74,54 +74,29 @@ interface CartContextType extends CartState {
   applyCoupon: (code: string) => Promise<{ success: boolean; discountAmount?: number }>;
   removeCoupon: () => void;
   clearCouponError: () => void;
-  
-  // Shipping address methods
   setShippingAddress: (address: Address | null) => void;
   clearShippingAddress: () => void;
-  
-  // Delivery option methods
   setDeliveryOption: (option: DeliveryOption | null) => void;
   loadDeliveryOptions: () => Promise<DeliveryOption[]>;
-  
-  // Payment methods
   setPaymentMethod: (method: PaymentMethod | null) => void;
   updatePaymentData: (data: Partial<PaymentData>) => void;
   clearPaymentData: () => void;
   validatePaymentData: (isRazorpayCompleted?: boolean) => boolean;
-  
-  // Order placement
   placeOrder: (userId?: string, isRazorpayCompleted?: boolean) => Promise<{ success: boolean; order?: any; error?: string; message?: string; calculatedPricing?: any }>;
   validateOrderData: (isRazorpayCompleted?: boolean) => { isValid: boolean; errors: string[] };
 }
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
 
 interface CartProviderProps {
   children: ReactNode;
   userId?: string;
 }
 
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
 export function CartProvider({ children, userId }: CartProviderProps) {
   const { toast } = useToast();
-  const [cart, setCart] = useState<CartState>({
-    items: [],
-    totalItems: 0,
-    totalPrice: 0,
-    appliedCoupon: null,
-    discountAmount: 0,
-    shippingAddress: null,
-    deliveryOption: null,
-    deliveryCharge: 0,
-    paymentData: {
-      selectedMethod: null,
-    },
-    paymentCharge: 0,
-    finalAmount: 0,
-    isLoading: false,
-    error: null,
-    couponError: null,
-  });
-
+  
+  // Calculate totals function
   const calculateTotals = useCallback((
     items: CartItem[], 
     coupon?: AppliedCoupon | null, 
@@ -172,7 +147,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     // Calculate final amount: subtotal - discount + payment charges (no delivery charge)
     // Ensure the discounted subtotal is never negative
     const discountedSubtotal = Math.max(0, totalPrice - recalculatedDiscount);
-    const finalAmount = discountedSubtotal + paymentCharge; // Remove deliveryCharge
+    const finalAmount = discountedSubtotal + paymentCharge;
     
     return { 
       totalItems, 
@@ -182,7 +157,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     };
   }, []);
 
-  // Save/load coupon state for guest users (defined before loadCart to fix initialization order)
+  // Save/load coupon state for guest users
   const saveGuestCoupon = useCallback((coupon: AppliedCoupon | null, discountAmount: number = 0) => {
     if (!userId) {
       try {
@@ -240,11 +215,213 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     return { shippingAddress: null, deliveryOption: null };
   }, [userId]);
 
+  // Enhanced cart state initialization with persistence
+  const [cart, setCart] = useState<CartState>(() => {
+    try {
+      // First priority: pre-logout cart (most recent)
+      const preLogoutCart = localStorage.getItem('pre-logout-cart');
+      if (preLogoutCart) {
+        const parsedCart = JSON.parse(preLogoutCart);
+        localStorage.removeItem('pre-logout-cart'); // Clean up after use
+        return {
+          ...parsedCart,
+          isLoading: false,
+          error: null,
+          couponError: null,
+        };
+      }
+      
+      // Second priority: persistent cart
+      const persistentCart = localStorage.getItem('persistent-cart');
+      if (persistentCart) {
+        const parsedCart = JSON.parse(persistentCart);
+        return {
+          ...parsedCart,
+          isLoading: false,
+          error: null,
+          couponError: null,
+        };
+      }
+      
+      // Third priority: guest cart (for non-authenticated users)
+      if (!userId) {
+        const guestCart = localStorage.getItem('guest-cart');
+        if (guestCart) {
+          const items = JSON.parse(guestCart);
+          const { coupon, discountAmount } = loadGuestCoupon();
+          const { totalItems, totalPrice, finalAmount, recalculatedDiscount } = calculateTotals(
+            items, 
+            coupon, 
+            discountAmount
+          );
+          
+          return {
+            items,
+            totalItems,
+            totalPrice,
+            appliedCoupon: coupon,
+            discountAmount: recalculatedDiscount,
+            shippingAddress: null,
+            deliveryOption: null,
+            deliveryCharge: 0,
+            paymentData: { selectedMethod: null },
+            paymentCharge: 0,
+            finalAmount,
+            isLoading: false,
+            error: null,
+            couponError: null,
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error loading persistent cart:', error);
+    }
+    
+    // Default initial state
+    return {
+      items: [],
+      totalItems: 0,
+      totalPrice: 0,
+      appliedCoupon: null,
+      discountAmount: 0,
+      shippingAddress: null,
+      deliveryOption: null,
+      deliveryCharge: 0,
+      paymentData: {
+        selectedMethod: null,
+      },
+      paymentCharge: 0,
+      finalAmount: 0,
+      isLoading: false,
+      error: null,
+      couponError: null,
+    };
+  });
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      // Don't save isLoading state to persistence
+      const { isLoading, error, couponError, ...persistableCart } = cart;
+      localStorage.setItem('persistent-cart', JSON.stringify(persistableCart));
+    } catch (error) {
+      console.error('Error saving persistent cart:', error);
+    }
+  }, [cart]);
+
+  // Restore cart after authentication state changes
+  useEffect(() => {
+    // If user logs out, maintain guest cart
+    if (!userId) {
+      try {
+        const guestCart = localStorage.getItem('guest-cart');
+        const preLogoutCart = localStorage.getItem('pre-logout-cart');
+        const persistentCart = localStorage.getItem('persistent-cart');
+        
+        // Priority: pre-logout cart > persistent cart > guest cart
+        let cartToRestore = null;
+        
+        if (preLogoutCart) {
+          cartToRestore = JSON.parse(preLogoutCart);
+          localStorage.removeItem('pre-logout-cart'); // Clean up
+        } else if (persistentCart) {
+          cartToRestore = JSON.parse(persistentCart);
+        } else if (guestCart) {
+          const items = JSON.parse(guestCart);
+          const { totalItems, totalPrice, finalAmount } = calculateTotals(items);
+          cartToRestore = {
+            items,
+            totalItems,
+            totalPrice,
+            finalAmount,
+            appliedCoupon: null,
+            discountAmount: 0,
+            shippingAddress: null,
+            deliveryOption: null,
+            deliveryCharge: 0,
+            paymentData: { selectedMethod: null },
+            paymentCharge: 0,
+          };
+        }
+        
+        if (cartToRestore) {
+          setCart(prev => ({
+            ...prev,
+            ...cartToRestore,
+            isLoading: false,
+          }));
+        }
+      } catch (error) {
+        console.error('Error restoring cart:', error);
+      }
+    }
+  }, [userId, calculateTotals]);
+
+  // Save guest cart to localStorage
+  const saveGuestCart = useCallback((items: CartItem[]) => {
+    if (!userId) {
+      try {
+        localStorage.setItem('guest-cart', JSON.stringify(items));
+      } catch (error) {
+        console.error('Error saving guest cart:', error);
+      }
+    }
+  }, [userId]);
+
+  // Revalidate applied coupon when cart changes
+  const revalidateAppliedCoupon = useCallback(async (newTotalPrice: number) => {
+    if (!cart.appliedCoupon) return true;
+    
+    try {
+      const response = await apiRequest('/api/coupons/validate', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: cart.appliedCoupon.code,
+          cartSubtotal: newTotalPrice,
+          userId: userId || undefined
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (!result.valid) {
+        // Remove invalid coupon and show toast notification
+        setCart(prev => ({
+          ...prev,
+          appliedCoupon: null,
+          discountAmount: 0,
+          finalAmount: newTotalPrice,
+          couponError: null
+        }));
+        
+        // Clear coupon from localStorage for guests
+        saveGuestCoupon(null);
+        
+        toast({
+          title: "Coupon Removed",
+          description: `Your coupon "${cart.appliedCoupon.code}" is no longer valid: ${result.error}`,
+          variant: "destructive"
+        });
+        
+        console.log(`[COUPON] Revalidation failed for ${cart.appliedCoupon.code}: ${result.error}`);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error revalidating coupon:', error);
+      // On network error, keep coupon but log the issue
+      return true;
+    }
+  }, [cart.appliedCoupon, userId, saveGuestCoupon, toast]);
+
   // Load cart from backend or localStorage
   const loadCart = useCallback(async () => {
     if (userId) {
       // Authenticated user - load from backend and merge guest cart if exists
       setCart(prev => ({ ...prev, isLoading: true, error: null }));
+      
       try {
         // Check for guest cart items to merge
         const guestCartItems = localStorage.getItem('guest-cart');
@@ -355,9 +532,6 @@ export function CartProvider({ children, userId }: CartProviderProps) {
             error: null,
             couponError: null,
           }));
-          
-          // Note: Coupon will be revalidated if user applies it again
-          // We don't auto-revalidate to avoid infinite loops
         } else {
           setCart(prev => ({
             ...prev,
@@ -372,66 +546,6 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     }
   }, [userId, calculateTotals, loadGuestCoupon]);
 
-  // Revalidate applied coupon when cart changes (Critical Issue 2)
-  const revalidateAppliedCoupon = useCallback(async (newTotalPrice: number) => {
-    if (!cart.appliedCoupon) return true;
-    
-    try {
-      const response = await apiRequest('/api/coupons/validate', {
-        method: 'POST',
-        body: JSON.stringify({
-          code: cart.appliedCoupon.code,
-          cartSubtotal: newTotalPrice,
-          userId: userId || undefined
-        }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const result = await response.json();
-      
-      if (!result.valid) {
-        // Remove invalid coupon and show toast notification
-        setCart(prev => ({
-          ...prev,
-          appliedCoupon: null,
-          discountAmount: 0,
-          finalAmount: newTotalPrice,
-          couponError: null
-        }));
-        
-        // Clear coupon from localStorage for guests
-        saveGuestCoupon(null);
-        
-        toast({
-          title: "Coupon Removed",
-          description: `Your coupon "${cart.appliedCoupon.code}" is no longer valid: ${result.error}`,
-          variant: "destructive"
-        });
-        
-        console.log(`[COUPON] Revalidation failed for ${cart.appliedCoupon.code}: ${result.error}`);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error revalidating coupon:', error);
-      // On network error, keep coupon but log the issue
-      return true;
-    }
-  }, [cart.appliedCoupon, userId, saveGuestCoupon]);
-
-  // Save guest cart to localStorage
-  const saveGuestCart = useCallback((items: CartItem[]) => {
-    if (!userId) {
-      try {
-        localStorage.setItem('guest-cart', JSON.stringify(items));
-      } catch (error) {
-        console.error('Error saving guest cart:', error);
-      }
-    }
-  }, [userId]);
-
-
   const addToCart = useCallback(async (product: Product, quantity: number = 1) => {
     // Prevent double-add by checking if already loading
     if (cart.isLoading) {
@@ -440,7 +554,6 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     }
     
     console.log(`[ADD TO CART] Starting - Product: ${product.name}, Quantity: ${quantity}, User: ${userId || 'guest'}`);
-    console.log('[ADD TO CART] Current cart items:', cart.items.map(item => `${item.name}: ${item.quantity}`));
     
     if (userId) {
       // Backend persistence for authenticated users
@@ -460,7 +573,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Reload cart after adding
         await loadCart();
         
-        // Revalidate coupon after cart reload (Critical Issue 2)
+        // Revalidate coupon after cart reload
         if (cart.appliedCoupon) {
           // Use a small delay to ensure cart has been reloaded
           setTimeout(async () => {
@@ -475,12 +588,6 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         }
       } catch (error: any) {
         console.error('[ADD TO CART] Backend error:', error);
-        console.error('[ADD TO CART] Error details:', {
-          message: error.message,
-          status: error.status,
-          response: error.response,
-          stack: error.stack
-        });
         setCart(prev => ({ 
           ...prev, 
           isLoading: false, 
@@ -518,7 +625,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Save to localStorage
         saveGuestCart(newItems);
         
-        // Revalidate coupon with new cart total (Critical Issue 2)
+        // Revalidate coupon with new cart total
         const couponValidationPromise = prevCart.appliedCoupon 
           ? revalidateAppliedCoupon(totalPrice)
           : Promise.resolve(true);
@@ -542,7 +649,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         };
       });
     }
-  }, [userId, calculateTotals, loadCart, saveGuestCart, revalidateAppliedCoupon]);
+  }, [userId, calculateTotals, loadCart, saveGuestCart, revalidateAppliedCoupon, cart.isLoading, cart.appliedCoupon, toast]);
 
   const removeFromCart = useCallback(async (productId: string) => {
     if (userId) {
@@ -558,9 +665,8 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Reload cart after removing
         await loadCart();
         
-        // Revalidate coupon after cart reload (Critical Issue 2)
+        // Revalidate coupon after cart reload
         if (cart.appliedCoupon) {
-          // Use a small delay to ensure cart has been reloaded
           setTimeout(async () => {
             const currentCart = await new Promise<CartState>(resolve => {
               setCart(current => {
@@ -592,7 +698,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Save to localStorage
         saveGuestCart(newItems);
         
-        // Revalidate coupon with new cart total (Critical Issue 2)
+        // Revalidate coupon with new cart total
         const couponValidationPromise = prevCart.appliedCoupon 
           ? revalidateAppliedCoupon(totalPrice)
           : Promise.resolve(true);
@@ -616,7 +722,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         };
       });
     }
-  }, [userId, calculateTotals, loadCart, saveGuestCart, revalidateAppliedCoupon]);
+  }, [userId, calculateTotals, loadCart, saveGuestCart, revalidateAppliedCoupon, cart.appliedCoupon]);
 
   const updateQuantity = useCallback(async (productId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -639,9 +745,8 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Reload cart after updating
         await loadCart();
         
-        // Revalidate coupon after cart reload (Critical Issue 2)
+        // Revalidate coupon after cart reload
         if (cart.appliedCoupon) {
-          // Use a small delay to ensure cart has been reloaded
           setTimeout(async () => {
             const currentCart = await new Promise<CartState>(resolve => {
               setCart(current => {
@@ -675,7 +780,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         // Save to localStorage
         saveGuestCart(newItems);
         
-        // Revalidate coupon with new cart total (Critical Issue 2)
+        // Revalidate coupon with new cart total
         const couponValidationPromise = prevCart.appliedCoupon 
           ? revalidateAppliedCoupon(totalPrice)
           : Promise.resolve(true);
@@ -699,7 +804,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         };
       });
     }
-  }, [userId, calculateTotals, removeFromCart, loadCart, saveGuestCart]);
+  }, [userId, calculateTotals, removeFromCart, loadCart, saveGuestCart, revalidateAppliedCoupon, cart.appliedCoupon]);
 
   const clearCart = useCallback(async () => {
     if (userId) {
@@ -916,7 +1021,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
       });
       return [];
     }
-  }, []);
+  }, [toast]);
 
   // Payment methods
   const setPaymentMethod = useCallback((method: PaymentMethod | null) => {
@@ -1072,11 +1177,11 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         customerName: cart.shippingAddress?.fullName || '',
         email: cart.shippingAddress?.email || '',
         phone: cart.shippingAddress?.phone || '',
-        
+
         // Order details (optional)
         occasion: '',
         requirements: '',
-        
+
         // Cart items with proper structure
         items: cart.items.map(item => {
           const unitPrice = parsePrice(item.price);
@@ -1089,23 +1194,46 @@ export function CartProvider({ children, userId }: CartProviderProps) {
             totalPrice: totalPrice
           };
         }),
-        
+
         // Pricing breakdown (top-level fields)
         subtotal: cart.totalPrice,
-        
+
         // Delivery information
         deliveryOptionId: cart.deliveryOption?.id || '',
         deliveryCharge: 0, // Always 0 - no delivery charges
         deliveryDate: undefined, // optional
-        
+
+        // Add delivery_option (name) and distance (km) for backend
+        delivery_option: cart.deliveryOption?.name || '',
+        distance: (() => {
+          if (cart.shippingAddress?.postalCode) {
+            // getPincodeDistanceInfo is imported from checkout.tsx
+            // If not found, fallback to 0
+            try {
+              // Dynamically require from checkout.tsx if not imported
+              let info;
+              if (typeof getPincodeDistanceInfo === 'function') {
+                info = getPincodeDistanceInfo(cart.shippingAddress.postalCode);
+              } else {
+                // fallback: require from checkout.tsx
+                info = require('@/pages/checkout').getPincodeDistanceInfo(cart.shippingAddress.postalCode);
+              }
+              return info && typeof info.distanceKm === 'number' ? info.distanceKm : 0;
+            } catch (e) {
+              return 0;
+            }
+          }
+          return 0;
+        })(),
+
         // Payment information
-  paymentMethod: mapPaymentMethod(cart.paymentData.selectedMethod),
-  paymentCharges: cart.paymentCharge,
-  // include gateway transaction id if present (e.g., after Razorpay payment)
-  paymentTransactionId: (cart.paymentData as any)?.paymentTransactionId,
-  // if caller indicated the Razorpay flow completed, mark paymentStatus completed
-  ...(isRazorpayCompleted ? { paymentStatus: 'completed' } : {}),
-        
+        paymentMethod: mapPaymentMethod(cart.paymentData.selectedMethod),
+        paymentCharges: cart.paymentCharge,
+        // include gateway transaction id if present (e.g., after Razorpay payment)
+        paymentTransactionId: (cart.paymentData as any)?.paymentTransactionId,
+        // if caller indicated the Razorpay flow completed, mark paymentStatus completed
+        ...(isRazorpayCompleted ? { paymentStatus: 'completed' } : {}),
+
         // Address information
         ...(userId ? {
           // For authenticated users, send address ID if available
@@ -1120,14 +1248,14 @@ export function CartProvider({ children, userId }: CartProviderProps) {
             `${cart.shippingAddress.fullName}, ${cart.shippingAddress.addressLine1}${cart.shippingAddress.addressLine2 ? ', ' + cart.shippingAddress.addressLine2 : ''}, ${cart.shippingAddress.landmark ? cart.shippingAddress.landmark + ', ' : ''}${cart.shippingAddress.city}, ${cart.shippingAddress.state} ${cart.shippingAddress.postalCode}, ${cart.shippingAddress.country}` :
             ''
         }),
-        
+
         // Coupon information
         couponCode: cart.appliedCoupon?.code,
         discountAmount: cart.discountAmount,
-        
+
         // Final total
         total: cart.finalAmount,
-        
+
         // User information (optional for guest checkout)
         userId: userId || undefined
       };
@@ -1186,12 +1314,12 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         error: 'Failed to place order. Please try again.'
       };
     }
-  }, [cart, validateOrderData, validatePaymentData, clearCart]);
+  }, [cart, validateOrderData, clearCart]);
 
   // Load cart when component mounts or userId changes
   useEffect(() => {
     loadCart();
-  }, [loadCart, userId]); // Added userId dependency to reload cart on auth changes
+  }, [loadCart, userId]);
 
   const value: CartContextType = {
     ...cart,

@@ -830,33 +830,7 @@ export default function ProductDetail() {
                   </Button>
                 )}
 
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 transition-all duration-300 hover:scale-105 hover:bg-pink-50 hover:border-pink-300 hover:shadow-md" 
-                    onClick={handleSaveForLater}
-                    disabled={addToFavoritesMutation.isPending || removeFromFavoritesMutation.isPending}
-                    data-testid="button-save-for-later"
-                  >
-                    <Heart 
-                      className={`w-4 h-4 mr-2 transition-all duration-300 ${
-                        favoriteStatus?.isFavorited ? 'fill-pink-500 text-pink-500 scale-110' : 'hover:scale-110'
-                      }`} 
-                    />
-                    {favoriteStatus?.isFavorited ? 'Saved' : 'Save for Later'}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md" 
-                    onClick={handleShare}
-                    data-testid="button-share"
-                  >
-                    <Share2 className="w-4 h-4 mr-2 transition-transform duration-300 hover:scale-110" />
-                    Share
-                  </Button>
-                </div>
+            
               </div>
 
               <Separator className="transition-all duration-500 animate-in fade-in delay-800" />

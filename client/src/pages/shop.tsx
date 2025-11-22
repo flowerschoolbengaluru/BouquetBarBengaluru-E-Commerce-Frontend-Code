@@ -1,3 +1,4 @@
+import localforage from "localforage";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,16 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Separator } from "@/components/ui/separator";
 import {
   Search,
-  MapPin,
   ShoppingCart,
   UserIcon,
-  Heart,
   Gift,
-  Calendar,
   Star,
-  Filter,
-  ChevronDown,
-  Phone,
+ Phone,
   LogOut,
   X,
   Plus,
@@ -36,12 +32,13 @@ import { type Product, type User } from "@shared/schema";
 import { useCart } from "@/hooks/cart-context";
 import FlowerCategory, { useCategoryContext, CategoryProvider } from "./FlowerCategory";
 import PostFile from "./PostFileProps";
-import PostThree from "./PostThree";
-import VideoFile from "./VideoFile";
-import PostFileFive from "./PostFileFive";
-import PostFileSix from "./PostFileSix";
+
 
 function ShopContent() {
+  
+      // ...existing code...
+
+      // Cart logic is now fully handled by cart-context. Remove localForage cart utilities.
   const [animatedText, setAnimatedText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -512,6 +509,14 @@ function ShopContent() {
     removeFromCart
   } = useCart();
 
+
+ 
+  // Debug: Log totalItems whenever it changes
+  useEffect(() => {
+     console.log('[SHOP] Cart totalItems from context:', totalItems);
+     console.log('[SHOP] Cart items from context:', items);
+  }, [totalItems, items]);
+
   // Get products data - fetch only best sellers
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products", "bestseller"],
@@ -598,8 +603,9 @@ function ShopContent() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Handle add to cart with toast notification
-  const handleAddToCart = (product: Product) => {
-    addToCart(product, 1);
+  const handleAddToCart = async (product: Product) => {
+    await addToCart(product, 1);
+    // localForage will update via useEffect above
     toast({
       title: "Added to Cart! 🛒",
       description: `${product.name} has been added to your cart.`,
@@ -612,6 +618,14 @@ function ShopContent() {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
+        const cartState = {
+      items,
+      totalItems,
+      totalPrice,
+    
+    };
+    
+    localStorage.setItem('pre-logout-cart', JSON.stringify(cartState));
       return await apiRequest("/api/auth/signout", {
         method: "POST",
       });
@@ -634,7 +648,23 @@ function ShopContent() {
   });
 
   const handleLogout = () => {
+
+  const currentCartState = {
+    items: items,
+    totalItems: totalItems,
+    totalPrice: totalPrice,
+
+    // Add other necessary cart properties
+  };
+
+  try {
+    localStorage.setItem('pre-logout-cart', JSON.stringify(currentCartState));
+  } catch (error) {
+    console.error('Error saving pre-logout cart:', error);
+  }
+
     logoutMutation.mutate();
+    // Do not reload or reset cart; localForage cart data is preserved
   };
 
   // Favorites mutations

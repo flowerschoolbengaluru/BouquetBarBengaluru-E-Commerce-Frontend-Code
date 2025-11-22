@@ -1246,16 +1246,7 @@ export default function MyAccount() {
                   <span className="hidden sm:inline">My Addresses</span>
                   <span className="sm:hidden">Addresses</span>
                 </Button>
-                <Button
-                  variant={activeTab === "favorites" ? "secondary" : "ghost"}
-                  className="w-full justify-start text-xs sm:text-sm lg:text-base py-2 px-2 sm:px-3"
-                  onClick={() => setActiveTab("favorites")}
-                  data-testid="button-nav-favorites"
-                >
-                  <Heart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 lg:mr-3" />
-                  <span className="hidden sm:inline">Favorites</span>
-                  <span className="sm:hidden">Favorites</span>
-                </Button>
+                
                 <Button
                   variant={activeTab === "settings" ? "secondary" : "ghost"}
                   className="w-full justify-start text-xs sm:text-sm lg:text-base py-2 px-2 sm:px-3"
@@ -1782,136 +1773,7 @@ export default function MyAccount() {
                 </div>
               )}
 
-              {/* Favorites Tab */}
-              {activeTab === "favorites" && (
-                <div className="space-y-4 sm:space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                        <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
-                        My Favorites
-                      </CardTitle>
-                      <CardDescription className="text-sm">
-                        Your saved and favorite items
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-4 sm:px-6">
-                      {favoritesLoading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                          {[...Array(6)].map((_, index) => (
-                            <Card key={index} className="overflow-hidden">
-                              <div className="w-full h-40 sm:h-48 bg-gray-200 animate-pulse"></div>
-                              <CardContent className="p-3 sm:p-4">
-                                <div className="h-3 sm:h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-                                <div className="h-5 sm:h-6 bg-gray-200 rounded animate-pulse"></div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : favorites.length === 0 ? (
-                        <div className="text-center py-6 sm:py-8">
-                          <Heart className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-3 sm:mb-4" />
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No favorites yet</h3>
-                          <p className="text-gray-600 mb-3 sm:mb-4 text-sm sm:text-base">Save items you love to see them here</p>
-                          <Button onClick={() => setLocation("/shop")} className="text-sm sm:text-base">
-                            Browse Products
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                          {favorites.map((favorite: any) => (
-                            <Card key={favorite.id} className="overflow-hidden hover:shadow-md transition-shadow" data-testid={`card-favorite-${favorite.productid}`}>
-                              <div className="relative">
-                                                               <img
-                                  src={favorite?.image ? `data:image/png;base64,${favorite.image}` : "/placeholder-image.jpg"}
-                                  alt={favorite?.name || "Product"}
-                                  className="w-full h-40 sm:h-48 object-cover cursor-pointer"
-                                  onClick={() => setLocation(`/product/${favorite.productid}`)}
-                                />
-                                <button
-                                  className="absolute top-2 right-2 w-6 h-6 sm:w-8 sm:h-8 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeFromFavoritesMutation.mutate(favorite.productid);
-                                  }}
-                                  disabled={removeFromFavoritesMutation.isPending}
-                                  data-testid={`button-remove-favorite-${favorite.productid}`}
-                                >
-                                  <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-pink-500 text-pink-500" />
-                                </button>
-                                {!favorite.inStock && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <Badge variant="secondary" className="bg-white text-black text-xs">
-                                      Out of Stock
-                                    </Badge>
-                                  </div>
-                                )}
-                              </div>
-                              <CardContent className="p-3 sm:p-4">
-                                <h3
-                                  className="font-semibold text-gray-900 mb-2 cursor-pointer hover:text-pink-600 transition-colors text-sm sm:text-base line-clamp-2"
-                                  onClick={() => setLocation(`/product/${favorite.productid}`)}
-                                >
-                                  {favorite.name || "Product Name"}
-                                </h3>
-                                <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-2">
-                                  {favorite.description || "Product description"}
-                                </p>
-                                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                  <span className="text-lg sm:text-xl font-bold text-primary">
-                                    ₹{favorite.price || "0"}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {favorite.category || "Category"}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center mb-3">
-                                  <span className="text-xs text-gray-500">
-                                    Stock: {favorite.stockquantity} available
-                                  </span>
-                                  {favorite.featured && (
-                                    <Badge variant="secondary" className="ml-2 text-xs bg-yellow-100 text-yellow-700">
-                                      Featured
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1 text-xs sm:text-sm"
-                                    onClick={() => setLocation(`/product/${favorite.productid}`)}
-                                    data-testid={`button-view-product-${favorite.productid}`}
-                                  >
-                                    View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 text-xs sm:text-sm"
-                                    onClick={() => {
-                                      toast({
-                                        title: "Add to Cart",
-                                        description: "Visit the product page to add to cart.",
-                                      });
-                                    }}
-                                    disabled={!favorite.inStock}
-                                    data-testid={`button-add-cart-${favorite.productid}`}
-                                  >
-                                    {!favorite.inStock ? "Out of Stock" : "Add to Cart"}
-                                  </Button>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  Added: {favorite.createdat ? new Date(favorite.createdat).toLocaleDateString() : 'Unknown'}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+          
 
               {/* Addresses Tab */}
               {activeTab === "addresses" && (

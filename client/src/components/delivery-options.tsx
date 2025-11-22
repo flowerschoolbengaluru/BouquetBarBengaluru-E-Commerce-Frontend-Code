@@ -62,17 +62,26 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
     if (pincodeDistance === undefined) {
       return options;
     }
-    
-    // Strict rule:
-    // - < 10km: Same Day only
-    // - >= 10km: Standard only
+
     const lower = (s: string) => s.toLowerCase();
     if (pincodeDistance < 10) {
-      const sameDay = options.filter(o => lower(o.name).includes('same day') || lower(o.name).includes('express'));
-      return sameDay.length > 0 ? sameDay : options; // fallback to all if none
+      // Show Same Day and Next Day delivery
+      const filtered = options.filter(o =>
+        lower(o.name).includes('same day') ||
+        lower(o.name).includes('express') ||
+        lower(o.name).includes('next day') ||
+        lower(o.name).includes('next-day') ||
+        lower(o.name).includes('tomorrow')
+      );
+      return filtered.length > 0 ? filtered : options;
     } else {
-      const standard = options.filter(o => lower(o.name).includes('standard') || lower(o.name).includes('regular'));
-      return standard.length > 0 ? standard : options; // fallback to all if none
+      // Show only Next Day delivery
+      const filtered = options.filter(o =>
+        lower(o.name).includes('next day') ||
+        lower(o.name).includes('next-day') ||
+        lower(o.name).includes('tomorrow')
+      );
+      return filtered.length > 0 ? filtered : options;
     }
   }, [options, pincodeDistance]);
 

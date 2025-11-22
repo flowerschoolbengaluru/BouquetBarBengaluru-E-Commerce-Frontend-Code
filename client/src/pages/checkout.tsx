@@ -1832,7 +1832,7 @@ export default function Checkout() {
                           })
                         )}
                       </div>
-
+                
                       <div className="hidden sm:block overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -1868,9 +1868,6 @@ export default function Checkout() {
                                           data-testid={`img-product-${item.id}`}
                                         />
                                         <div className="min-w-0">
-                                          <h3 className="font-medium text-foreground text-sm sm:text-base truncate" data-testid={`text-product-name-${item.id}`}>
-                                            {item.name}
-                                          </h3>
                                       
                                           <p className="text-xs sm:hidden text-muted-foreground">
                                             {formatPrice(item.price)}
@@ -1950,9 +1947,11 @@ export default function Checkout() {
                             
                           </TableBody>
                         </Table>
-                        <p className="text-sm text-green-600 mt-3">
-                          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
-                        </p>
+                        <div className="flex justify-end mt-2">
+                       <p className="text-sm text-green-600">
+          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+        </p>
+        </div>
                       </div>
 
                       {!isLoading && items.length > 0 && (
@@ -2025,6 +2024,7 @@ export default function Checkout() {
                             <p className="text-xs sm:text-sm text-green-700">{getShippingAddressString()}</p>
                           </div>
                         )}
+                       
                       </CardContent>
                     </Card>
 
@@ -2138,10 +2138,28 @@ export default function Checkout() {
                             </h3>
                             <div className="p-4 bg-gray-50 rounded-lg">
                               <p className="text-sm">{getShippingAddressString()}</p>
+                              {/* Delivery Option and Distance */}
+                              {deliveryOption && shippingAddress && (
+                                <div className="mt-2 text-sm text-blue-700">
+                                  <span className="font-medium">Delivery Option:</span> {deliveryOption.name}
+                                  {shippingAddress.postalCode && (
+                                    <>
+                                      {(() => {
+                                        const info = getPincodeDistanceInfo(shippingAddress.postalCode);
+                                        return info && info.distanceKm !== undefined
+                                          ? `, Distance: ${info.distanceKm} km`
+                                          : '';
+                                      })()}
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            <p className="text-sm text-green-600 mt-3">
-                              <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
-                            </p>
+                            <div className="px-6 pb-4">
+                              <p className="text-sm text-green-600">
+                                <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+                              </p>
+                            </div>
                           </div>
 
                           <Separator />
@@ -2343,8 +2361,8 @@ export default function Checkout() {
                               <span>Subtotal</span>
                               <span data-testid="text-subtotal">{formatPrice(totalPrice)}</span>
                             </div>
-
-                           
+                            {/* Delivery charges note below subtotal, right side */}
+                          
                             {paymentCharge > 0 && (
                               <div className="flex justify-between text-sm sm:text-base">
                                 <span className="truncate pr-2">Payment Charge ({paymentData.selectedMethod?.toUpperCase()})</span>
@@ -2392,17 +2410,8 @@ export default function Checkout() {
                                   "Continue to Review"}
                           </Button>
 
-                          {(!shippingAddress || !deliveryOption || !validatePaymentData()) && (
-                            <div className="text-xs text-muted-foreground text-center space-y-1">
-                              {!shippingAddress && <p>Please add a shipping address.</p>}
-                              {!deliveryOption && <p>Please select a delivery option.</p>}
-                              {!validatePaymentData() && <p>Please complete payment details.</p>}
-                            </div>
-                          )}
 
-                          <p className="text-xs text-muted-foreground text-center">
-                            
-                          </p>
+                         
                         </>
                       )}
                     </CardContent>

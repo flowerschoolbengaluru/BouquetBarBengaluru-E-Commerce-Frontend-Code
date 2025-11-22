@@ -107,6 +107,7 @@ export default function ShopNav() {
     queryKey: ["/api/auth/user"],
     retry: false,
   });
+  const isAuthenticated = !!user;
 
   // Cart context integration following project patterns
   const {
@@ -333,7 +334,11 @@ export default function ShopNav() {
                   className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:opacity-50 transform-gpu"
                   onClick={() => {
                     handleCartClose();
-                    setLocation('/checkout');
+                    if (!isAuthenticated) {
+                      setLocation('/signin');
+                    } else {
+                      setLocation('/checkout');
+                    }
                   }}
                   disabled={cartLoading || items.length === 0}
                 >
@@ -353,7 +358,7 @@ export default function ShopNav() {
         </div>
       </DialogContent>
     </Dialog>
-  ), [showCartModal, totalItems, items, cartLoading, totalPrice, handleCartOpen, handleCartClose, handleQuantityUpdate, handleRemoveItem, setLocation]);
+  ), [showCartModal, totalItems, items, cartLoading, totalPrice, handleCartOpen, handleCartClose, handleQuantityUpdate, handleRemoveItem, setLocation, isAuthenticated]);
 
   return (
     <>

@@ -284,12 +284,12 @@ export default function OrderConfirmation() {
               Continue Shopping
             </Button>
           </Link>
-          <Link href="/my-account">
+          {/* <Link href="/my-account">
             <Button data-testid="button-track-order">
               <Package className="w-4 h-4 mr-2" />
                Your Orders History
             </Button>
-          </Link>
+          </Link> */}
         </div>
       </div>
     </div>
