@@ -101,6 +101,8 @@ export interface Order {
   occasion?: string;
   requirements?: string;
   couponCode?: string;
+  delivery_option?: string;
+  distance?: number;
 }
 
 export interface AddressValidation {

@@ -36,7 +36,7 @@ import PostFile from "./PostFileProps";
 
 function ShopContent() {
   
-      // ...existing code...
+
 
       // Cart logic is now fully handled by cart-context. Remove localForage cart utilities.
   const [animatedText, setAnimatedText] = useState("");
@@ -89,90 +89,72 @@ function ShopContent() {
 
 
   // Get all items for search suggestions
+  // Only return main category, subcategory, or product name suggestions
   const getAllItems = () => {
     const allItems: Array<{ item: string, category: string, categoryId: string }> = [];
 
-    // Add main category suggestions first
+    // Main category suggestions (no duplicates)
     const mainCategorySuggestions = [
-      { item: "Occasion Flowers", category: "Main Categories", categoryId: "occasion" },
-      { item: "Occasions", category: "Main Categories", categoryId: "occasion" },
-      { item: "Flower Arrangements", category: "Main Categories", categoryId: "arrangements" },
-      { item: "Arrangements", category: "Main Categories", categoryId: "arrangements" },
-      { item: "Flowers by Type", category: "Main Categories", categoryId: "flower-types" },
-      { item: "Flowers", category: "Main Categories", categoryId: "flower-types" },
-      { item: "Gift Combos", category: "Main Categories", categoryId: "gift-combo" },
-      { item: "Gifts", category: "Main Categories", categoryId: "gift-combo" },
-      { item: "Event Decorations", category: "Main Categories", categoryId: "event-decoration" },
-      { item: "Events", category: "Main Categories", categoryId: "event-decoration" },
-      { item: "Services", category: "Main Categories", categoryId: "services" },
-      { item: "Memorial Flowers", category: "Main Categories", categoryId: "memorial" },
-      { item: "Memorial", category: "Main Categories", categoryId: "memorial" },
-      { item: "Corporate Flowers", category: "Main Categories", categoryId: "corporate" },
-      { item: "Corporate", category: "Main Categories", categoryId: "corporate" }
+      { item: "Occasion Flowers", category: "Main Category", categoryId: "occasion" },
+      { item: "Flower Arrangements", category: "Main Category", categoryId: "arrangements" },
+      { item: "Flowers by Type", category: "Main Category", categoryId: "flower-types" },
+      { item: "Gift Combos", category: "Main Category", categoryId: "gift-combo" },
+      { item: "Event Decorations", category: "Main Category", categoryId: "event-decoration" },
+      { item: "Memorial Flowers", category: "Main Category", categoryId: "memorial" },
+      { item: "Corporate Flowers", category: "Main Category", categoryId: "corporate" }
     ];
-
     allItems.push(...mainCategorySuggestions);
 
-    // Add subcategory suggestions using actual category data
+    // Subcategory suggestions (no duplicates)
     const subcategorySuggestions = [
-      // Popular occasions
-      { item: "Valentine's Day", category: "Occasions", categoryId: "valentine" },
-      { item: "Mother's Day", category: "Occasions", categoryId: "mothers-day" },
-      { item: "Father's Day", category: "Occasions", categoryId: "fathers-day" },
-      { item: "Birthday", category: "Occasions", categoryId: "birthday" },
-      { item: "Anniversary", category: "Occasions", categoryId: "anniversary" },
-      { item: "Graduation Day Flowers", category: "Occasions", categoryId: "graduation" },
-      { item: "Congratulations Flowers", category: "Occasions", categoryId: "congratulations" },
-      
-      // Popular flowers
-      { item: "Roses", category: "Flower Types", categoryId: "roses" },
-      { item: "Lilies", category: "Flower Types", categoryId: "lilies" },
-      { item: "Tulips", category: "Flower Types", categoryId: "tulips" },
-      { item: "Orchids", category: "Flower Types", categoryId: "orchids" },
-      { item: "Sunflowers", category: "Flower Types", categoryId: "sunflowers" },
-      { item: "Carnations", category: "Flower Types", categoryId: "carnations" },
-      
-      // Popular arrangements  
-      { item: "Bouquets (hand-tied, wrapped)", category: "Arrangements", categoryId: "bouquets" },
-      { item: "Flower Baskets", category: "Arrangements", categoryId: "baskets" },
-      { item: "Vase Arrangements", category: "Arrangements", categoryId: "vase-arrangements" },
-      { item: "Floral Centerpieces", category: "Arrangements", categoryId: "centerpieces" },
-      
-      // Popular gift combos
-      { item: "Flower with Chocolates", category: "Gift Combos", categoryId: "chocolates" },
-      { item: "Flower with Cakes", category: "Gift Combos", categoryId: "cakes" },
-      { item: "Flowers with Teddy Bears", category: "Gift Combos", categoryId: "teddy-bears" },
-      { item: "Flowers with Wine", category: "Gift Combos", categoryId: "wine" },
-      
-      // Popular events
-      { item: "Wedding Floral Decor", category: "Events", categoryId: "wedding" },
-      { item: "Birthday Decorations", category: "Events", categoryId: "birthday-decor" },
-      { item: "Corporate Event Flowers", category: "Events", categoryId: "corporate-events" }
+      { item: "Valentine's Day", category: "Subcategory", categoryId: "valentine" },
+      { item: "Mother's Day", category: "Subcategory", categoryId: "mothers-day" },
+      { item: "Father's Day", category: "Subcategory", categoryId: "fathers-day" },
+      { item: "Birthday", category: "Subcategory", categoryId: "birthday" },
+      { item: "Anniversary", category: "Subcategory", categoryId: "anniversary" },
+      { item: "Graduation Day Flowers", category: "Subcategory", categoryId: "graduation" },
+      { item: "Congratulations Flowers", category: "Subcategory", categoryId: "congratulations" },
+      { item: "Roses", category: "Subcategory", categoryId: "roses" },
+      { item: "Lilies", category: "Subcategory", categoryId: "lilies" },
+      { item: "Tulips", category: "Subcategory", categoryId: "tulips" },
+      { item: "Orchids", category: "Subcategory", categoryId: "orchids" },
+      { item: "Sunflowers", category: "Subcategory", categoryId: "sunflowers" },
+      { item: "Carnations", category: "Subcategory", categoryId: "carnations" },
+      { item: "Bouquets (hand-tied, wrapped)", category: "Subcategory", categoryId: "bouquets" },
+      { item: "Flower Baskets", category: "Subcategory", categoryId: "baskets" },
+      { item: "Vase Arrangements", category: "Subcategory", categoryId: "vase-arrangements" },
+      { item: "Floral Centerpieces", category: "Subcategory", categoryId: "centerpieces" },
+      { item: "Flower with Chocolates", category: "Subcategory", categoryId: "chocolates" },
+      { item: "Flower with Cakes", category: "Subcategory", categoryId: "cakes" },
+      { item: "Flowers with Teddy Bears", category: "Subcategory", categoryId: "teddy-bears" },
+      { item: "Flowers with Wine", category: "Subcategory", categoryId: "wine" },
+      { item: "Wedding Floral Decor", category: "Subcategory", categoryId: "wedding" },
+      { item: "Birthday Decorations", category: "Subcategory", categoryId: "birthday-decor" },
+      { item: "Corporate Event Flowers", category: "Subcategory", categoryId: "corporate-events" }
     ];
-
     allItems.push(...subcategorySuggestions);
 
-    // Define category mappings (your existing categories)
+    // Product name suggestions from categories (filter out 'Other Services')
+    const allowedTypes = [
+      "Occasions", "Arrangement Types", "Flower Types", "Gift Combinations", "Event Services", "Delivery Services"
+    ];
     const occasionCategories = [
       "Birthday Flowers", "Anniversary Flowers", "Wedding Flowers", "Valentine's Day Flowers", 
       "Mother's Day Flowers", "Get Well Soon Flowers", "Congratulations Flowers", 
       "Sympathy & Funeral Flowers", "New Baby Flowers", "Graduation Flowers", 
       "Housewarming Flowers", "Retirement Flowers", "Christmas Flowers", "New Year Flowers"
     ];
-
     const arrangementTypes = [
       "Bouquets (hand-tied, wrapped)", "Flower Baskets", "Flower Boxes", "Vase Arrangements", 
       "Floral Centerpieces", "Flower Garlands", "Lobby Arrangements", "Exotic Arrangements",
       "Floral Cross Arrangement", "Baby's Breath Arrangement", "Gladiolus Arrangement", 
       "Wine Bottle Arrangements", "Floral Wreaths", "Custom Arrangements"
     ];
-
     const flowerTypes = [
       "Tulips", "Lilies", "Carnations", "Orchids", "Sunflowers", "Mixed Flowers", "Roses", 
       "Baby's Breath", "Chrysanthemum", "Hydrangea", "Anthurium", "Calla Lilies", 
       "Gerberas", "Peonies"
     ];
-
     const giftCombos = [
       "Flowers with Greeting Cards", "Flower with Fruits", "Floral Gift Hampers", 
       "Flower with Chocolates", "Flower with Cakes", "Flowers with Cheese", 
@@ -180,7 +162,6 @@ function ShopContent() {
       "Flowers with Perfume", "Flowers with Jewelry", "Flowers with Teddy Bears", 
       "Flowers with Scented Candles", "Flowers with Personalized Items"
     ];
-
     const eventServices = [
       "Wedding Floral Decor", "Corporate Event Flowers", "Party Flower Decorations", 
       "Stage & Backdrop Flowers", "Car Decoration Flowers", "Temple / Pooja Flowers", 
@@ -188,16 +169,14 @@ function ShopContent() {
       "Aisle Decorations", "Archway Flowers", "Ceiling Installations", 
       "Wall Decorations", "Outdoor Event Flowers"
     ];
-
     const deliveryServices = [
       "Same-Day Flower Delivery", "Next Day Delivery", "Customized Message Cards", 
       "Floral Subscriptions Weekly/monthly", "International Delivery", 
       "Express Delivery", "Scheduled Delivery"
     ];
 
-    categories.forEach((category, index) => {
-      let categoryType = "Other Services";
-      
+    categories.forEach((category) => {
+      let categoryType = "";
       if (occasionCategories.includes(category)) {
         categoryType = "Occasions";
       } else if (arrangementTypes.includes(category)) {
@@ -211,12 +190,14 @@ function ShopContent() {
       } else if (deliveryServices.includes(category)) {
         categoryType = "Delivery Services";
       }
-
-      allItems.push({
-        item: category,
-        category: categoryType,
-        categoryId: category.toLowerCase().replace(/\s+/g, '-')
-      });
+      // Only add if type is allowed and not empty
+      if (categoryType && allowedTypes.includes(categoryType)) {
+        allItems.push({
+          item: category,
+          category: categoryType,
+          categoryId: category.toLowerCase().replace(/\s+/g, '-')
+        });
+      }
     });
 
     return allItems;

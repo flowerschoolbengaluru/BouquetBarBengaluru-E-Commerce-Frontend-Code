@@ -2129,6 +2129,22 @@ export default function Checkout() {
                           </div>
 
                           <Separator />
+                          {/* Coupon details below separator */}
+                          {appliedCoupon && (
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <Tag className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-800">Coupon Applied:</span>
+                                <span className="text-blue-700">{appliedCoupon.code}</span>
+                              </div>
+                              <div className="mt-2 text-sm text-blue-700">
+                                <span className="font-medium">Type:</span> {appliedCoupon.type}
+                                {typeof appliedCoupon.value !== 'undefined' && (
+                                  <span className="ml-4"><span className="font-medium">Value:</span> {appliedCoupon.value}{appliedCoupon.type === 'percentage' ? '%' : ''}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Shipping Address */}
                           <div>
@@ -2194,7 +2210,7 @@ export default function Checkout() {
 
                             {appliedCoupon && discountAmount > 0 && (
                               <div className="flex justify-between text-green-600">
-                                <span>Discount ({appliedCoupon.code})</span>
+                                <span>Discount - (Coupon)({appliedCoupon.code})</span>
                                 <span>-{formatPrice(discountAmount)}</span>
                               </div>
                             )}
@@ -2374,7 +2390,7 @@ export default function Checkout() {
 
                             {appliedCoupon && discountAmount > 0 && (
                               <div className="flex justify-between text-sm sm:text-base text-green-600 dark:text-green-400">
-                                <span className="truncate pr-2">Discount ({appliedCoupon.code})</span>
+                                <span className="truncate pr-2">Discount (Coupon) ({appliedCoupon.code})</span>
                                 <span data-testid="text-discount" className="flex-shrink-0">-{formatPrice(discountAmount)}</span>
                               </div>
                             )}

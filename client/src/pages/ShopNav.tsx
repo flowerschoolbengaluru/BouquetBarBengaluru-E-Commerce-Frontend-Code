@@ -95,6 +95,150 @@ const detectSubcategory = (searchQuery: string): string | null => {
 };
 
 export default function ShopNav() {
+  // Search suggestion state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<Array<{ item: string, category: string, categoryId: string }>>([]);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Main category and subcategory suggestion lists (no duplicates)
+  const mainCategorySuggestions = [
+    { item: "Occasion Flowers", category: "Main Category", categoryId: "occasion" },
+    { item: "Flower Arrangements", category: "Main Category", categoryId: "arrangements" },
+    { item: "Flowers by Type", category: "Main Category", categoryId: "flower-types" },
+    { item: "Gift Combos", category: "Main Category", categoryId: "gift-combo" },
+    { item: "Event Decorations", category: "Main Category", categoryId: "event-decoration" },
+    { item: "Memorial Flowers", category: "Main Category", categoryId: "memorial" },
+    { item: "Corporate Flowers", category: "Main Category", categoryId: "corporate" }
+  ];
+  const subcategorySuggestions = [
+    { item: "Valentine's Day", category: "Subcategory", categoryId: "valentine" },
+    { item: "Mother's Day", category: "Subcategory", categoryId: "mothers-day" },
+    { item: "Father's Day", category: "Subcategory", categoryId: "fathers-day" },
+    { item: "Birthday", category: "Subcategory", categoryId: "birthday" },
+    { item: "Anniversary", category: "Subcategory", categoryId: "anniversary" },
+    { item: "Graduation Day Flowers", category: "Subcategory", categoryId: "graduation" },
+    { item: "Congratulations Flowers", category: "Subcategory", categoryId: "congratulations" },
+    { item: "Roses", category: "Subcategory", categoryId: "roses" },
+    { item: "Lilies", category: "Subcategory", categoryId: "lilies" },
+    { item: "Tulips", category: "Subcategory", categoryId: "tulips" },
+    { item: "Orchids", category: "Subcategory", categoryId: "orchids" },
+    { item: "Sunflowers", category: "Subcategory", categoryId: "sunflowers" },
+    { item: "Carnations", category: "Subcategory", categoryId: "carnations" },
+    { item: "Bouquets (hand-tied, wrapped)", category: "Subcategory", categoryId: "bouquets" },
+    { item: "Flower Baskets", category: "Subcategory", categoryId: "baskets" },
+    { item: "Vase Arrangements", category: "Subcategory", categoryId: "vase-arrangements" },
+    { item: "Floral Centerpieces", category: "Subcategory", categoryId: "centerpieces" },
+    { item: "Flower with Chocolates", category: "Subcategory", categoryId: "chocolates" },
+    { item: "Flower with Cakes", category: "Subcategory", categoryId: "cakes" },
+    { item: "Flowers with Teddy Bears", category: "Subcategory", categoryId: "teddy-bears" },
+    { item: "Flowers with Wine", category: "Subcategory", categoryId: "wine" },
+    { item: "Wedding Floral Decor", category: "Subcategory", categoryId: "wedding" },
+    { item: "Birthday Decorations", category: "Subcategory", categoryId: "birthday-decor" },
+    { item: "Corporate Event Flowers", category: "Subcategory", categoryId: "corporate-events" }
+  ];
+
+  // Combine all suggestions
+  const getAllSuggestions = () => {
+    return [...mainCategorySuggestions, ...subcategorySuggestions];
+  };
+
+  // Filter suggestions based on search query
+  const filterSuggestions = (query: string) => {
+    if (!query.trim()) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const allItems = getAllSuggestions();
+    const filtered = allItems
+      .filter(({ item }) => item.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 8);
+    setSearchSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    filterSuggestions(query);
+  };
+
+  // Handle suggestion click - FIXED VERSION
+  const handleSuggestionClick = (suggestion: { item: string, category: string, categoryId: string }) => {
+    setSearchQuery(suggestion.item);
+    setShowSuggestions(false);
+    console.log('🔍 Suggestion clicked:', suggestion);
+    let url = '';
+    if (suggestion.category === "Subcategory") {
+      url = `/products?subcategory=${encodeURIComponent(suggestion.categoryId)}`;
+      console.log('📍 Navigating to subcategory:', url);
+      setLocation(url);
+      window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+      return;
+    }
+    if (suggestion.category === "Main Category") {
+      url = `/products?main_category=${encodeURIComponent(suggestion.categoryId)}`;
+      console.log('📍 Navigating to main category:', url);
+      setLocation(url);
+      window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+      return;
+    }
+    // Default: product name search
+    url = `/products?search=${encodeURIComponent(suggestion.item)}`;
+    console.log('📍 Navigating with search:', url);
+    setLocation(url);
+    window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+  };
+
+  // Handle search key down - FIXED VERSION
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      setShowSuggestions(false);
+      const searchTerm = searchQuery.trim();
+      console.log('🔍 Search term:', searchTerm);
+      // Try to detect main category or subcategory from the actual mappings
+      const mainCat = detectMainCategory(searchTerm);
+      const subCat = detectSubcategory(searchTerm);
+      console.log('🎯 Detected main category:', mainCat);
+      console.log('🎯 Detected subcategory:', subCat);
+      let url = '';
+      if (subCat) {
+        url = `/products?subcategory=${encodeURIComponent(subCat)}`;
+        console.log('📍 Navigating to subcategory:', url);
+        setLocation(url);
+        window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+        return;
+      }
+      if (mainCat) {
+        url = `/products?main_category=${encodeURIComponent(mainCat)}`;
+        console.log('📍 Navigating to main category:', url);
+        setLocation(url);
+        window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+        return;
+      }
+      // Default search
+      url = `/products?search=${encodeURIComponent(searchTerm)}`;
+      console.log('📍 Navigating with search:', url);
+      setLocation(url);
+      window.dispatchEvent(new CustomEvent('locationchange', { detail: { path: url } }));
+    }
+  };
+
+  // Handle clicking outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   const [showCartModal, setShowCartModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [location, setLocation] = useLocation();
@@ -121,8 +265,6 @@ export default function ShopNav() {
     updateQuantity,
     removeFromCart
   } = useCart();
-
-
 
   // Logout mutation following project patterns
   const logoutMutation = useMutation({
@@ -174,10 +316,6 @@ export default function ShopNav() {
       cartModalRef.current = false;
     }, 200);
   }, []);
-
-
-
-
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -382,8 +520,6 @@ export default function ShopNav() {
 
               {/* Mobile Action Buttons */}
               <div className="flex items-center gap-2">
-
-
                 {/* Cart Button - Performance optimized */}
                 <Button
                   variant="ghost"
@@ -412,30 +548,45 @@ export default function ShopNav() {
               </div>
             </div>
 
-
-
             {/* Mobile Search Bar */}
-            <div className="px-4 pb-3">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const searchTerm = formData.get('search') as string;
-                if (searchTerm.trim()) {
-                  window.location.href = `/products?search=${encodeURIComponent(searchTerm.trim())}`;
-                }
-              }}>
-                <div className="relative">
-                  <input
-                    name="search"
-                    type="text"
-                    placeholder="Search flowers, occasions..."
-                    className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-1 focus:ring-pink-200 focus:outline-none transition-all duration-200 text-sm"
-                  />
-                  <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <Search className="w-4 h-4 text-gray-500 hover:text-pink-500 transition-colors" />
-                  </button>
-                </div>
-              </form>
+            <div className="lg:hidden pb-3" ref={searchRef}>
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-4 pr-10 py-3 w-full rounded-lg border border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-200 shadow-sm transition-all duration-200 text-sm h-12"
+                  placeholder="Search for flowers.."
+                />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+
+                {/* Mobile Search Suggestions */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                    <div className="p-2">
+                      <div className="space-y-1">
+                        {searchSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between px-3 py-3 hover:bg-pink-50 cursor-pointer rounded-md transition-colors border-b border-gray-50 last:border-b-0"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                          >
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="text-sm font-medium text-gray-900 truncate">
+                                {suggestion.item}
+                              </span>
+                              <span className="text-xs text-gray-500 truncate">
+                                in {suggestion.category}
+                              </span>
+                            </div>
+                            <Search className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Mobile Menu Dropdown */}
@@ -536,36 +687,47 @@ export default function ShopNav() {
             </Link>
 
             {/* Desktop Search Bar */}
-            <div className="flex-1 max-w-xl mx-4 md:mx-6">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const searchTerm = formData.get('search') as string;
-                if (searchTerm.trim()) {
-                  window.location.href = `/products?search=${encodeURIComponent(searchTerm.trim())}`;
-                }
-              }}>
-                <div className="relative">
-                  <input
-                    name="search"
-                    type="text"
-                    placeholder="Search for flowers, occasions, arrangements..."
-                    className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl focus:border-pink-400 focus:ring-1 focus:ring-pink-200 focus:outline-none transition-all duration-200 text-sm md:text-base"
-                  />
-                  <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <Search className="w-4 h-4 text-gray-500 hover:text-pink-500 transition-colors" />
-                  </button>
-                </div>
-              </form>
+            <div className="flex-1 max-w-xl mx-4 md:mx-6" ref={searchRef}>
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search for flowers...."
+                  className="w-full pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl focus:border-pink-400 focus:ring-1 focus:ring-pink-200 focus:outline-none transition-all duration-200 text-sm md:text-base"
+                />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 hover:text-pink-500 transition-colors" />
+                {/* Search Suggestions */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                    <div className="p-2">
+                      <div className="space-y-1">
+                        {searchSuggestions.map((suggestion, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between px-3 py-3 hover:bg-pink-50 cursor-pointer rounded-md transition-colors border-b border-gray-50 last:border-b-0"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                          >
+                            <div className="flex flex-col flex-1 min-w-0 space-y-1">
+                              <span className="text-sm font-medium text-gray-900 leading-tight">
+                                {suggestion.item}
+                              </span>
+                              <span className="text-xs text-gray-500 leading-tight">
+                                {suggestion.category}
+                              </span>
+                            </div>
+                            <Search className="w-4 h-4 text-gray-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Desktop Action Buttons */}
             <div className="flex items-center gap-3 md:gap-1 relative">
-              <div className="relative group">
-                {/* Search Button */}
-
-              </div>
-
               <div className="relative group">
                 {/* Cart Button - Performance optimized */}
                 <Button
