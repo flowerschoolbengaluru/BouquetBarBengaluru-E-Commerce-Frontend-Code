@@ -9,7 +9,7 @@ import { ChevronDown, ChevronUp, Filter, X, Search, ShoppingCart } from 'lucide-
 import { apiRequest } from "@/lib/queryClient";
 import { useCart } from '@/hooks/cart-context';
 import { useToast } from '@/hooks/use-toast';
-
+ 
 interface Product {
   id: string;
   name: string;
@@ -527,24 +527,29 @@ export default function ProductsListing() {
         </button>
         {openSections.colors && (
           <div className="space-y-2 pt-2">
-            {filterConfigs.colors.map((color) => (
-              <label key={color.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
-                <Checkbox
-                  checked={filters.colors.includes(color.label)}
-                  onCheckedChange={(checked) => {
-                    setFilters(prev => ({
-                      ...prev,
-                      colors: checked
-                        ? [...prev.colors, color.label]
-                        : prev.colors.filter(c => c !== color.label)
-                    }));
-                  }}
-                />
-                <span className="text-xs text-gray-600">
-                  {color.label} ({color.count})
-                </span>
-              </label>
-            ))}
+            {/* Show loading spinner or placeholder until products are loaded and counts are calculated */}
+            {!products ? (
+              <div className="text-xs text-gray-400">Loading color counts...</div>
+            ) : (
+              filterConfigs.colors.map((color) => (
+                <label key={color.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
+                  <Checkbox
+                    checked={filters.colors.includes(color.label)}
+                    onCheckedChange={(checked) => {
+                      setFilters(prev => ({
+                        ...prev,
+                        colors: checked
+                          ? [...prev.colors, color.label]
+                          : prev.colors.filter(c => c !== color.label)
+                      }));
+                    }}
+                  />
+                  <span className="text-xs text-gray-600">
+                    {color.label} ({color.count})
+                  </span>
+                </label>
+              ))
+            )}
           </div>
         )}
       </div>

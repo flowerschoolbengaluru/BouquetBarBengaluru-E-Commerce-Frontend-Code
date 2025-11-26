@@ -1,5 +1,6 @@
 
 
+
 # AI Coding Instructions for Flower School E-Commerce
 
 ## Architecture Overview
