@@ -545,7 +545,8 @@ export default function ProductsListing() {
                     }}
                   />
                   <span className="text-xs text-gray-600">
-                    {color.label} ({color.count})
+                    {color.label} 
+                    {/* ({color.count}) */}
                   </span>
                 </label>
               ))
