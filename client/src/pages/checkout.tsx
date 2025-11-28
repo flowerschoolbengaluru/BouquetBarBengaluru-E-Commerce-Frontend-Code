@@ -4,6 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useQuery, useMutation } from "@tanstack/react-query";
+// Helper component to check if address still exists
+function AddressExistenceChecker({ addressId, children }: { addressId?: string; children: React.ReactNode }) {
+  const { data: addresses = [] } = useQuery<any[]>({
+    queryKey: ["/api/addresses"],
+  });
+  if (!addressId) return null;
+  const exists = addresses.some(addr => addr.id === addressId);
+  if (!exists) return null;
+  return <>{children}</>;
+}
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +48,6 @@ import {
 import { useCart } from "@/hooks/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import DeliveryOptions from "@/components/delivery-options";
 import PaymentOptions from "@/components/payment-options";
 import { type CheckoutStep } from "@/components/checkout-steps";
@@ -674,7 +684,7 @@ function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; on
 }
 
 // Address List Component for Checkout
-function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: AddressData) => void }) {
+function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: AddressData | null) => void }) {
   const { toast } = useToast();
   const [editingAddress, setEditingAddress] = useState<AddressData | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -711,14 +721,45 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
       }
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
-      refetch();
-      toast({
-        title: "Address deleted",
-        description: "Address has been deleted successfully",
-      });
-    },
+      onSuccess: (_data, deletedId) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
+        refetch();
+        // If the deleted address is currently selected, clear shippingAddress
+        if (typeof window !== "undefined") {
+          // Get the current selected address from localStorage (guest) or context
+          // For guest users, shippingAddress is stored in localStorage as 'guest-shipping'
+          let currentShipping = null;
+          try {
+            const guestShipping = localStorage.getItem('guest-shipping');
+            if (guestShipping) {
+              const parsed = JSON.parse(guestShipping);
+              currentShipping = parsed.shippingAddress;
+            }
+          } catch {}
+          // If the deleted address matches the selected shipping address, clear it
+          if (currentShipping && currentShipping.id === deletedId) {
+            localStorage.removeItem('guest-shipping');
+          }
+        }
+        // For all users, if the deleted address is currently selected, call onSelectAddress(null) to clear selection
+        try {
+          const guestShipping = localStorage.getItem('guest-shipping');
+          let currentShipping = null;
+          if (guestShipping) {
+            const parsed = JSON.parse(guestShipping);
+            currentShipping = parsed.shippingAddress;
+          }
+          if (currentShipping && currentShipping.id === deletedId) {
+            if (typeof onSelectAddress === 'function') {
+              onSelectAddress(null);
+            }
+          }
+        } catch {}
+        toast({
+          title: "Address deleted",
+          description: "Address has been deleted successfully",
+        });
+      },
     onError: (error: any) => {
       toast({
         title: "Error",
@@ -1222,7 +1263,12 @@ export default function Checkout() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const handleAddressSelect = (address: AddressData) => {
+  const handleAddressSelect = (address: AddressData | null) => {
+    if (!address) {
+      setShippingAddress(null);
+      setSelectedAddressData(null);
+      return;
+    }
     const addressForCart: Address = {
       fullName: address.fullname,
       phone: address.phone,
@@ -1242,7 +1288,6 @@ export default function Checkout() {
     setSelectedAddressData(address);
 
     const distanceInfo = getPincodeDistanceInfo(address.postalcode);
-    
     toast({
       title: "Address Selected",
       description: `Delivery address set to ${address.addresstype} address${distanceInfo ? ` (${distanceInfo.distance})` : ''}`,
@@ -1947,11 +1992,7 @@ export default function Checkout() {
                             
                           </TableBody>
                         </Table>
-                        <div className="flex justify-end mt-2">
-                       <p className="text-sm text-green-600">
-          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
-        </p>
-        </div>
+                        
                       </div>
 
                       {!isLoading && items.length > 0 && (
@@ -2015,15 +2056,19 @@ export default function Checkout() {
                           </div>
                         )}
 
-                        {shippingAddress && (
-                          <div className="mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                              <span className="font-medium text-green-800 text-sm sm:text-base">Selected Address:</span>
+                        {shippingAddress && selectedAddressData && (
+                          // Only show if selectedAddressData still exists in the address list
+                          <AddressExistenceChecker addressId={selectedAddressData.id}>
+                            <div className="mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="font-medium text-green-800 text-sm sm:text-base">Selected Address:</span>
+                              </div>
+                              <p className="text-xs sm:text-sm text-green-700">{getShippingAddressString()}</p>
                             </div>
-                            <p className="text-xs sm:text-sm text-green-700">{getShippingAddressString()}</p>
-                          </div>
+                          </AddressExistenceChecker>
                         )}
+                    
                        
                       </CardContent>
                     </Card>
@@ -2397,6 +2442,11 @@ export default function Checkout() {
                           </div>
 
                           <Separator />
+                          <div className="flex justify-end mt-2">
+                       <p className="text-sm text-green-600">
+          <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
+        </p>
+        </div>
 
                           <div className="flex justify-between text-lg font-semibold">
                             <span>Total</span>
