@@ -37,7 +37,7 @@ interface Product {
 }
  
 interface FilterState {
-  priceRange: [number, number];
+priceRanges: [number, number][];
   flowerTypes: string[];
   arrangements: string[];
   occasions: string[];
@@ -93,8 +93,8 @@ export default function ProductsListing() {
   // Local search state
   const [localSearchTerm, setLocalSearchTerm] = useState(urlParams.search || '');
  
-  const [filters, setFilters] = useState<FilterState>({
-    priceRange: [0, 10000],
+ const [filters, setFilters] = useState<FilterState>({
+  priceRanges: [],
     flowerTypes: [],
     arrangements: [],
     occasions: [],
@@ -150,7 +150,7 @@ export default function ProductsListing() {
   // Reset filters when category changes
   useEffect(() => {
     setFilters({
-      priceRange: [0, 10000],
+     priceRanges: [],
       flowerTypes: [],
       arrangements: [],
       occasions: [],
@@ -187,8 +187,12 @@ export default function ProductsListing() {
       if (filters.inStock) apiParams.append('inStock', 'true');
       if (filters.featured) apiParams.append('featured', 'true');
       if (filters.bestSeller) apiParams.append('bestSeller', 'true');
-      if (filters.priceRange[0] > 0) apiParams.append('minPrice', filters.priceRange[0].toString());
-      if (filters.priceRange[1] < 10000) apiParams.append('maxPrice', filters.priceRange[1].toString());
+     if (filters.priceRanges.length > 0) {
+  filters.priceRanges.forEach(([min, max]) => {
+    apiParams.append('minPrice', min.toString());
+    apiParams.append('maxPrice', max.toString());
+  });
+}
       if (filters.colors.length) apiParams.append('colors', filters.colors.join(','));
       if (filters.flowerTypes.length) apiParams.append('flowerTypes', filters.flowerTypes.join(','));
       if (filters.arrangements.length) apiParams.append('arrangements', filters.arrangements.join(','));
@@ -334,7 +338,7 @@ export default function ProductsListing() {
  
   const resetFilters = () => {
     setFilters({
-      priceRange: [0, 10000],
+   priceRanges: [],
       flowerTypes: [],
       arrangements: [],
       occasions: [],
@@ -394,37 +398,47 @@ export default function ProductsListing() {
       </button>
  
       {/* Price Filter */}
-      <div>
-        <button
-          onClick={() => toggleSection('price')}
-          className="w-full flex justify-between items-center text-sm font-semibold text-gray-900 mb-2 hover:text-pink-600"
-        >
-          Price Range
-          {openSections.price ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
-        {openSections.price && (
-          <div className="space-y-2 pt-2">
-            {filterConfigs.priceRanges.map((range) => (
-              <label key={range.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
-                <Checkbox
-                  checked={filters.priceRange[0] === range.value[0]}
-                  onCheckedChange={() => {
-                    setFilters(prev => ({
-                      ...prev,
-                      priceRange: range.value as [number, number]
-                    }));
-                  }}
-                />
-                <span className="text-xs text-gray-600">₹{range.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+   <div>
+  <button
+    onClick={() => toggleSection('price')}
+    className="w-full flex justify-between items-center text-sm font-semibold text-gray-900 mb-2 hover:text-pink-600"
+  >
+    Price Range
+    {openSections.price ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    )}
+  </button>
+  {openSections.price && (
+    <div className="space-y-2 pt-2">
+      {filterConfigs.priceRanges.map((range) => {
+        const isChecked = filters.priceRanges.some(([min, max]) => min === range.value[0] && max === range.value[1]);
+        return (
+          <label key={range.label} className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded">
+            <Checkbox
+              checked={isChecked}
+              onCheckedChange={(checked) => {
+                setFilters(prev => {
+                  let newRanges = prev.priceRanges.slice();
+                  if (checked) {
+                    if (!newRanges.some(([min, max]) => min === range.value[0] && max === range.value[1])) {
+                      newRanges.push(range.value as [number, number]);
+                    }
+                  } else {
+                    newRanges = newRanges.filter(([min, max]) => !(min === range.value[0] && max === range.value[1]));
+                  }
+                  return { ...prev, priceRanges: newRanges };
+                });
+              }}
+            />
+            <span className="text-xs text-gray-600">₹{range.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  )}
+</div>
  
       {/* Flower Types */}
       <div>
@@ -706,7 +720,7 @@ export default function ProductsListing() {
             </div>
  
             {/* Active Filters Indicator */}
-            {(filters.priceRange[0] > 0 || filters.priceRange[1] < 10000 || 
+            {(filters.priceRanges.length > 0 ||   
               filters.colors.length > 0 || filters.flowerTypes.length > 0 || 
               filters.arrangements.length > 0 || filters.inStock || 
               filters.featured || filters.bestSeller) && (
@@ -714,11 +728,11 @@ export default function ProductsListing() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="flex flex-wrap gap-2">
-                      {filters.priceRange[0] > 0 || filters.priceRange[1] < 10000 ? (
-                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
-                          ₹{filters.priceRange[0]} - ₹{filters.priceRange[1]}
-                        </span>
-                      ) : null}
+                     {filters.priceRanges.length > 0 && filters.priceRanges.map(([min, max], idx) => (
+  <span key={idx} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
+    ₹{min} - ₹{max}
+  </span>
+))}
                       {filters.colors.map(color => (
                         <span key={color} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
                           {color}
