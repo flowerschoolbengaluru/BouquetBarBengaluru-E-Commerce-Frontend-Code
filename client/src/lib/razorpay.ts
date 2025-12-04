@@ -74,12 +74,15 @@ export const createRazorpayOrder = async (orderData: RazorpayOrderData) => {
   }
 };
 
-export const verifyRazorpayPayment = async (paymentData: {
+export interface VerifyRazorpayPaymentData {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
   enrollment_data?: any;
-}) => {
+  order_details?: any;
+}
+
+export const verifyRazorpayPayment = async (paymentData: VerifyRazorpayPaymentData) => {
   try {
     console.log('Verifying Razorpay payment:', {
       order_id: paymentData.razorpay_order_id,

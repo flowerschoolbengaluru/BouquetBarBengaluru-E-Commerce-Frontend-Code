@@ -1731,6 +1731,51 @@ export default function Checkout() {
     </TableRow>
   );
 
+  // Automatically place order after payment is completed and on review step
+  useEffect(() => {
+    if (currentStep === 'review' && isPaymentCompleted && !isPlacingOrder) {
+      // Require authentication before creating the order
+      if (!user?.id) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to confirm your order.",
+          variant: "destructive",
+        });
+        setLocation(`/signin`);
+        return;
+      }
+      const autoPlaceOrder = async () => {
+        setIsPlacingOrder(true);
+        try {
+          const orderResult = await placeOrder(user?.id, true);
+          if (orderResult.success && orderResult.order) {
+            toast({
+              title: "Order Created Successfully!",
+              description: "Redirecting to order confirmation...",
+            });
+            setLocation(`/order-confirmation/${orderResult.order.id}`);
+          } else {
+            toast({
+              title: "Order Creation Failed",
+              description: orderResult.error || "Failed to create order. Please contact support.",
+              variant: "destructive",
+            });
+          }
+        } catch (orderError) {
+          console.error('Order creation error:', orderError);
+          toast({
+            title: "Order Creation Error",
+            description: "There was an issue creating your order. Please contact support.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsPlacingOrder(false);
+        }
+      };
+      autoPlaceOrder();
+    }
+  }, [currentStep, isPaymentCompleted, isPlacingOrder, user, placeOrder, toast, setLocation]);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-white shadow-sm">
@@ -2007,12 +2052,12 @@ export default function Checkout() {
                             Clear Cart
                           </Button>
 
-                          <Link to="/shop" className="w-full sm:w-auto order-1 sm:order-2">
+                          {/* <Link to="/shop" className="w-full sm:w-auto order-1 sm:order-2">
                             <Button variant="ghost" data-testid="link-continue-shopping-inline" className="w-full sm:w-auto">
                               <ArrowLeft className="mr-2 h-4 w-4" />
                               Continue Shopping
                             </Button>
-                          </Link>
+                          </Link> */}
                         </div>
                       )}
 
@@ -2135,206 +2180,16 @@ export default function Checkout() {
 
                 {currentStep === 'review' && (
                   <div className="mx-1 sm:mx-0">
-                    {isPaymentCompleted ? (
-                      <Card>
-                        <CardHeader className="bg-green-50 border-b border-green-200">
-                          <div className="flex items-center gap-3">
-                            <CheckCircle className="h-6 w-6 text-green-600" />
-                            <div>
-                              <CardTitle className="text-xl text-green-800">Payment Successful!</CardTitle>
-                              <p className="text-sm text-green-600 mt-1">Your payment has been processed successfully</p>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
-                          {/* Order Items */}
-                          <div>
-                            <h3 className="text-lg font-semibold mb-4 flex items-center">
-                              <ShoppingCart className="h-5 w-5 mr-2" />
-                              Order Items ({items.length})
-                            </h3>
-                            <div className="space-y-3">
-                              {items.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                  <div className="flex items-center space-x-3">
-                                    <img
-                                      src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
-                                      alt={item.name}
-                                      className="h-12 w-12 rounded object-cover"
-                                    />
-                                    <div>
-                                      <h4 className="font-medium">{item.name}</h4>
-                                      <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                                    </div>
-                                  </div>
-                                  <p className="font-medium">{formatPrice(typeof item.price === 'string' ? parseFloat(item.price) : item.price)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <Separator />
-                          {/* Coupon details below separator */}
-                          {appliedCoupon && (
-                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                              <div className="flex items-center gap-2">
-                                <Tag className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-800">Coupon Applied:</span>
-                                <span className="text-blue-700">{appliedCoupon.code}</span>
-                              </div>
-                              <div className="mt-2 text-sm text-blue-700">
-                                <span className="font-medium">Type:</span> {appliedCoupon.type}
-                                {typeof appliedCoupon.value !== 'undefined' && (
-                                  <span className="ml-4"><span className="font-medium">Value:</span> {appliedCoupon.value}{appliedCoupon.type === 'percentage' ? '%' : ''}</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Shipping Address */}
-                          <div>
-                            <h3 className="text-lg font-semibold mb-4 flex items-center">
-                              <MapPin className="h-5 w-5 mr-2" />
-                              Shipping Address
-                            </h3>
-                            <div className="p-4 bg-gray-50 rounded-lg">
-                              <p className="text-sm">{getShippingAddressString()}</p>
-                              {/* Delivery Option and Distance */}
-                              {deliveryOption && shippingAddress && (
-                                <div className="mt-2 text-sm text-blue-700">
-                                  <span className="font-medium">Delivery Option:</span> {deliveryOption.name}
-                                  {shippingAddress.postalCode && (
-                                    <>
-                                      {(() => {
-                                        const info = getPincodeDistanceInfo(shippingAddress.postalCode);
-                                        return info && info.distanceKm !== undefined
-                                          ? `, Distance: ${info.distanceKm} km`
-                                          : '';
-                                      })()}
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div className="px-6 pb-4">
-                              <p className="text-sm text-green-600">
-                                <strong>Note:</strong> Delivery charges will vary depending on the porter or third-party delivery services.
-                              </p>
-                            </div>
-                          </div>
-
-                          <Separator />
-
-                          {/* Payment Method */}
-                          <div>
-                            <h3 className="text-lg font-semibold mb-4 flex items-center">
-                              <CreditCard className="h-5 w-5 mr-2" />
-                              Payment Method
-                            </h3>
-                            <div className="p-4 bg-gray-50 rounded-lg">
-                              <p className="font-medium">Razorpay Payment</p>
-                              <p className="text-sm text-gray-600 mt-1">Payment completed successfully</p>
-                            </div>
-                          </div>
-
-                          <Separator />
-
-                          {/* Order Total */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between">
-                              <span>Subtotal</span>
-                              <span>{formatPrice(totalPrice)}</span>
-                            </div>
-
-                            {paymentCharge > 0 && (
-                              <div className="flex justify-between">
-                                <span>Payment Charge</span>
-                                <span>{formatPrice(paymentCharge)}</span>
-                              </div>
-                            )}
-
-                            {appliedCoupon && discountAmount > 0 && (
-                              <div className="flex justify-between text-green-600">
-                                <span>Discount - (Coupon)({appliedCoupon.code})</span>
-                                <span>-{formatPrice(discountAmount)}</span>
-                              </div>
-                            )}
-
-                            <Separator />
-
-                            <div className="flex justify-between text-lg font-semibold">
-                              <span>Total</span>
-                              <span>{formatPrice(totalPrice + paymentCharge - discountAmount)}</span>
-                            </div>
-                            {appliedCoupon && discountAmount > 0 && (
-                              <div className="text-xs text-green-600 text-right mt-1">
-                                You save {formatPrice(discountAmount)}!
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Final Order Placement Button */}
-                          <div className="pt-4">
-                            <Button
-                              size="lg"
-                              className="w-full"
-                              onClick={async () => {
-                                // Require authentication before creating the order
-                                if (!user?.id) {
-                                  toast({
-                                    title: "Sign in required",
-                                    description: "Please sign in to confirm your order.",
-                                    variant: "destructive",
-                                  });
-                                  setLocation(`/signin`);
-                                  return;
-                                }
-
-                                setIsPlacingOrder(true);
-                                try {
-                                  // Pass true for isRazorpayCompleted since payment is already completed
-                                  const orderResult = await placeOrder(user?.id, true);
-                                  
-                                  if (orderResult.success && orderResult.order) {
-                                    toast({
-                                      title: "Order Created Successfully!",
-                                      description: "Redirecting to order confirmation...",
-                                    });
-                                    
-                                    // Redirect to order confirmation page
-                                    setLocation(`/order-confirmation/${orderResult.order.id}`);
-                                  } else {
-                                    toast({
-                                      title: "Order Creation Failed",
-                                      description: orderResult.error || "Failed to create order. Please contact support.",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                } catch (orderError) {
-                                  console.error('Order creation error:', orderError);
-                                  toast({
-                                    title: "Order Creation Error",
-                                    description: "There was an issue creating your order. Please contact support.",
-                                    variant: "destructive",
-                                  });
-                                } finally {
-                                  setIsPlacingOrder(false);
-                                }
-                              }}
-                              disabled={isPlacingOrder}
-                            >
-                              {isPlacingOrder ? "Creating Order..." : "Confirm Order"}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <OrderReview
-                        onPlaceOrder={handlePlaceOrder}
-                        onEdit={handleEditSection}
-                        isPlacingOrder={isPlacingOrder}
-                      />
-                    )}
+                    {/* Hide CardContent UI after payment is completed, only run logic */}
+                    {isPaymentCompleted
+                      ? null
+                      : (
+                        <OrderReview
+                          onPlaceOrder={handlePlaceOrder}
+                          onEdit={handleEditSection}
+                          isPlacingOrder={isPlacingOrder}
+                        />
+                      )}
                   </div>
                 )}
               </div>
@@ -2460,7 +2315,7 @@ export default function Checkout() {
                             </div>
                           )}
 
-                          <Button
+                          {/* <Button
                             size="lg"
                             className="w-full"
                             onClick={() => {
@@ -2474,7 +2329,7 @@ export default function Checkout() {
                               !deliveryOption ? "Select Delivery Option" :
                                 !validatePaymentData() ? "Complete Payment Details" :
                                   "Continue to Review"}
-                          </Button>
+                          </Button> */}
 
 
                          
