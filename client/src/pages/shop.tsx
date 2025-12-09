@@ -905,13 +905,15 @@ function ShopContent() {
 
   // Deterministic pseudo-random rating based on product id (stable per product)
   const getRatingForProduct = (id: string): number => {
+    // Only allow ratings above 4: 4, 4.2, 4.5, 4.8, 4.9
+    const allowedRatings = [4, 4.2, 4.5, 4.8, 4.9];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash) + id.charCodeAt(i);
       hash |= 0;
     }
-    const normalized = Math.abs(hash) % 50;
-    return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
+    const idx = Math.abs(hash) % allowedRatings.length;
+    return allowedRatings[idx];
   };
 
   return (
@@ -1639,13 +1641,15 @@ const CategoryProductsSection: React.FC = () => {
 
   // Deterministic pseudo-random rating based on product id
   const getRatingForProduct = (id: string): number => {
+    // Ratings from 4.0 to 4.9 in 0.1 increments
+    const allowedRatings = [4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash) + id.charCodeAt(i);
       hash |= 0;
     }
-    const normalized = Math.abs(hash) % 50;
-    return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
+    const idx = Math.abs(hash) % allowedRatings.length;
+    return allowedRatings[idx];
   };
   
   // Early return after all hooks are declared
@@ -1742,9 +1746,22 @@ const CategoryProductsSection: React.FC = () => {
                       const fullStars = Math.floor(rating);
                       const stars = [] as JSX.Element[];
                       for (let i = 0; i < 5; i++) {
-                        stars.push(
-                          <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                        );
+                        if (i === 4) {
+                          // Only yellow if rating >= 4.5 AND fullStars === 5
+                          if (rating >= 4.5 && fullStars === 5) {
+                            stars.push(
+                              <Star key={i} className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                            );
+                          } else {
+                            stars.push(
+                              <Star key={i} className="w-3 h-3 text-gray-300" />
+                            );
+                          }
+                        } else {
+                          stars.push(
+                            <Star key={i} className={`w-3 h-3 ${i < fullStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                          );
+                        }
                       }
                       return (
                         <div className="flex items-center gap-1">
@@ -1845,9 +1862,16 @@ const ProductNameSearchSection: React.FC<{ searchTerm: string | null; onClear: (
 
   // Function to get rating for a product
   const getRatingForProduct = (productId: string | number) => {
-    // You can implement actual rating logic here
-    // For now, return a default rating
-    return 4.2;
+    // Only allow ratings above 4: 4, 4.2, 4.5, 4.8, 4.9
+    const allowedRatings = [4, 4.2, 4.5, 4.8, 4.9];
+    const id = String(productId);
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % allowedRatings.length;
+    return allowedRatings[idx];
   };
 
   const handleAddToCart = (product: Product) => {
@@ -2052,13 +2076,15 @@ const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear
 
   // Deterministic pseudo-random rating based on product id
   const getRatingForProduct = (id: string): number => {
+    // Only allow ratings above 4: 4, 4.2, 4.5, 4.8, 4.9
+    const allowedRatings = [4, 4.2, 4.5, 4.8, 4.9];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = ((hash << 5) - hash) + id.charCodeAt(i);
       hash |= 0;
     }
-    const normalized = Math.abs(hash) % 50;
-    return +(3.5 + (normalized / 100) * 1.5).toFixed(1);
+    const idx = Math.abs(hash) % allowedRatings.length;
+    return allowedRatings[idx];
   };
   
   // Early return after all hooks are declared

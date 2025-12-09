@@ -703,10 +703,29 @@ export default function ProductDetail() {
                 
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400 transition-transform duration-300 hover:scale-125" />
-                    ))}
-                    <span className="text-sm text-gray-600 ml-2 transition-colors duration-300 hover:text-gray-900">(127 reviews)</span>
+                    {(() => {
+                      // Ratings above 4 only
+                      const allowedRatings = [4, 4.2, 4.5, 4.8, 4.9];
+                      // Use product.id for deterministic rating
+                      const id = String(product.id ?? "flower");
+                      let hash = 0;
+                      for (let i = 0; i < id.length; i++) {
+                        hash = ((hash << 5) - hash) + id.charCodeAt(i);
+                        hash |= 0;
+                      }
+                      const rating = allowedRatings[Math.abs(hash) % allowedRatings.length];
+                      const fullStars = Math.floor(rating);
+                      const stars = [];
+                      for (let i = 0; i < 5; i++) {
+                        stars.push(
+                          <Star key={i} className={`w-4 h-4 transition-transform duration-300 hover:scale-125 ${i < fullStars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                        );
+                      }
+                      return <>
+                        {stars}
+                        <span className="text-xs text-gray-600 ml-1">{rating}</span>
+                      </>;
+                    })()}
                   </div>
                 </div>
 
