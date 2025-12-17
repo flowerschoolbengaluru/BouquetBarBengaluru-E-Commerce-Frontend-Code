@@ -1444,28 +1444,25 @@ function ShopContent() {
                   </div>
                 </div>
 
-                <DialogFooter className="flex-col gap-2 sm:flex-row">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCartModal(false)}
-                    className="w-full sm:w-auto border-pink-200 text-pink-700 hover:bg-pink-50"
-                  >
-                    Continue Shopping
-                  </Button>
-                  <Button
-                    className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                    onClick={() => {
-                      setShowCartModal(false);
-                      if (user) {
-                        setLocation('/checkout');
-                      } else {
-                        setLocation('/signin');
-                      }
-                    }}
-                  >
-                    Proceed to Checkout
-                  </Button>
-                </DialogFooter>
+               <DialogFooter className="flex-col gap-2 sm:flex-row">
+  <Button
+    variant="outline"
+    onClick={() => setShowCartModal(false)}
+    className="w-full sm:w-auto border-pink-200 text-pink-700 hover:bg-pink-50"
+  >
+    Continue Shopping
+  </Button>
+  <Button
+    className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+    onClick={() => {
+      setShowCartModal(false);
+      setLocation('/checkout');
+    }}
+    disabled={items.length === 0 || isLoading}
+  >
+    {isLoading ? 'Processing...' : 'Proceed to Checkout'}
+  </Button>
+</DialogFooter>
               </>
             )}
           </div>

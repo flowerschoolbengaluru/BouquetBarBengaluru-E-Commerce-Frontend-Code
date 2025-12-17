@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef,useCallback  } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,10 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation } from "@tanstack/react-query";
 // Helper component to check if address still exists
+// Helper component to check if address still exists
 function AddressExistenceChecker({ addressId, children }: { addressId?: string; children: React.ReactNode }) {
-  const { data: addresses = [] } = useQuery<any[]>({
-    queryKey: ["/api/addresses"],
+  // Get user data
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
+
+  const { data: addresses = [] } = useQuery<any[]>({
+    queryKey: ["/api/addresses", user?.id],
+  });
+  
   if (!addressId) return null;
   const exists = addresses.some(addr => addr.id === addressId);
   if (!exists) return null;
@@ -57,6 +66,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { loadRazorpay, createRazorpayOrder, verifyRazorpayPayment, getPaymentStatus, type RazorpayPaymentOptions } from "@/lib/razorpay";
 
+
 interface CartItem {
   id: string;
   name: string;
@@ -86,6 +96,12 @@ interface DeliveryOption {
   name: string;
   price: number | string;
   estimatedDays?: number;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
 }
 
 // Pincode distance data for Bangalore
@@ -187,6 +203,11 @@ interface AddressData {
 // Address Form Component for Checkout
 function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; onSuccess: () => void }) {
   const { toast } = useToast();
+    const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const getDefaultValues = () => ({
     fullname: address?.fullname || "",
@@ -213,95 +234,220 @@ function CheckoutAddressForm({ address, onSuccess }: { address?: AddressData; on
     form.reset(defaultValues);
   }, [address?.id, form]);
 
-  const saveAddressMutation = useMutation({
-    mutationFn: async (data: AddressFormData) => {
-      const isEdit = address?.id;
-      const method = isEdit ? "PUT" : "POST";
-      const url = isEdit ? `/api/addresses/${address.id}` : "/api/addresses"
+const saveAddressMutation = useMutation({
+  mutationFn: async (data: AddressFormData) => {
+    const isEdit = address?.id;
+    const method = isEdit ? "PUT" : "POST";
+    const url = isEdit ? `/api/addresses/${address.id}` : "/api/addresses";
 
-      const requestData = {
-        fullName: data.fullname,
-        phone: data.phone,
-        email: data.email,
-        addressLine1: data.addressline1,
-        addressLine2: data.addressline2,
-        landmark: data.landmark,
-        city: data.city,
-        state: data.state,
-        postalCode: data.postalcode,
-        country: data.country,
-        addressType: data.addresstype,
-        isDefault: data.isdefault,
-      };
+    // Get current user state
+    const userData = queryClient.getQueryData<User>(["/api/auth/user"]);
+    const isGuest = !userData?.id;
 
-      const response = await apiRequest(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
+    // For guest users, we need to handle the email differently
+    const requestData: any = {
+      fullName: data.fullname,
+      phone: data.phone,
+      addressLine1: data.addressline1,
+      addressLine2: data.addressline2 || "",
+      landmark: data.landmark || "",
+      city: data.city,
+      state: data.state,
+      postalCode: data.postalcode,
+      country: data.country,
+      addressType: data.addresstype,
+      isDefault: data.isdefault,
+    };
 
-      if (!response.ok) {
-        let errorMessage = "Failed to save address. Please try again.";
-        
-        try {
-          const errorData = await response.json();
-          if (errorData.message) {
-            // Convert technical errors to user-friendly messages
-            const message = errorData.message.toLowerCase();
-            if (message.includes('phone') || message.includes('mobile')) {
-              errorMessage = "Please enter a correct mobile number";
-            } else if (message.includes('email')) {
-              if (message.includes('invalid') || message.includes('format')) {
-                errorMessage = "Please enter a valid email address (e.g., name@gmail.com)";
-              } else {
-                errorMessage = "Please enter a correct email address";
-              }
-            } else if (message.includes('postal') || message.includes('pin')) {
-              errorMessage = "Please enter a valid postal code";
-            } else if (message.includes('address')) {
-              errorMessage = "Please check your address details";
-            } else if (message.includes('required') || message.includes('missing')) {
-              errorMessage = "Please fill in all required fields";
-            } else if (message.includes('validation') || message.includes('invalid')) {
-              errorMessage = "Please check your information and correct any errors";
-            } else {
-              errorMessage = "Please check your information and try again";
-            }
-          }
-        } catch (e) {
-          // Keep the default user-friendly message
+    // Add email for guest users
+    if (isGuest) {
+      requestData.email = data.email || "";
+    } else {
+      // For logged-in users, email is optional or can come from user profile
+      if (data.email) {
+        requestData.email = data.email;
+      }
+    }
+
+    console.log('Saving address:', { 
+      method, 
+      url, 
+      isGuest, 
+      isEdit, 
+      hasUserId: !!userData?.id 
+    });
+
+    const response = await apiRequest(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+      let errorMessage = "Failed to save address. Please try again.";
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
         }
         
-        throw new Error(errorMessage);
-      }
-
-      let result;
-      try {
-        result = await response.json();
+        // Handle specific error cases
+        if (response.status === 400) {
+          errorMessage = errorData.message || "Invalid address data. Please check all fields.";
+        } else if (response.status === 401) {
+          errorMessage = "Please sign in to save addresses";
+        } else if (response.status === 409) {
+          errorMessage = "An address with these details already exists";
+        } else if (response.status === 500) {
+          errorMessage = "Server error. Please try again later.";
+        }
       } catch (e) {
-        result = { success: true };
+        console.error('Error parsing error response:', e);
       }
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
-      toast({
-        title: "Success",
-        description: `Address ${address?.id ? 'updated' : 'added'} successfully`,
+      
+      throw new Error(errorMessage);
+    }
+
+    return response.json();
+  },
+  onSuccess: (result: any, data: AddressFormData) => {
+    console.log('Address saved successfully:', result);
+    
+    // Get fresh user data from query cache
+    const userData = queryClient.getQueryData<User>(["/api/auth/user"]);
+    const isGuest = !userData?.id;
+    
+    // If guest user, save email in storage
+    if (isGuest && data.email) {
+      localStorage.setItem('guest-email', data.email);
+      sessionStorage.setItem('guest-email', data.email);
+      console.log('Guest email saved:', data.email);
+    }
+    
+    // Invalidate addresses query - IMPORTANT: Use the same query key pattern
+    const queryKey = ["/api/addresses", userData?.id || "guest"];
+    queryClient.invalidateQueries({ 
+      queryKey,
+      exact: false // Invalidate all queries that start with this key
+    });
+    
+    // Also refetch immediately
+    queryClient.refetchQueries({ queryKey });
+    
+    toast({
+      title: "Success",
+      description: `Address ${address?.id ? 'updated' : 'added'} successfully`,
+      duration: 3000,
+    });
+    
+    // Reset form with current values (preserve data for potential re-edit)
+    if (address?.id) {
+      // For edit, reset to the new values
+      form.reset({
+        fullname: data.fullname,
+        phone: data.phone,
+        email: data.email || "",
+        addressline1: data.addressline1,
+        addressline2: data.addressline2 || "",
+        landmark: data.landmark || "",
+        city: data.city,
+        state: data.state,
+        postalcode: data.postalcode,
+        country: data.country,
+        addresstype: data.addresstype,
+        isdefault: data.isdefault,
       });
+    } else {
+      // For new address, reset to empty/default values
       form.reset(getDefaultValues());
-      onSuccess();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save address",
-        variant: "destructive",
-      });
-    },
-  });
+    }
+    
+    // Call the onSuccess callback (to close dialog, etc.)
+    onSuccess();
+  },
+  onError: (error: any) => {
+    console.error('Address save error:', error);
+    
+    // Show appropriate error message
+    let errorMessage = error.message || "Failed to save address";
+    
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = "Network error. Please check your connection.";
+    }
+    
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+      duration: 5000,
+    });
+    
+    // Optionally, you could set form errors here
+    // if (error.fieldErrors) {
+    //   Object.entries(error.fieldErrors).forEach(([field, message]) => {
+    //     form.setError(field as any, { type: 'manual', message: message as string });
+    //   });
+    // }
+  },
+  onMutate: async (newAddressData: AddressFormData) => {
+    // Optional: Optimistic update
+    // You can implement optimistic updates here if you want
+    // For example, add the new address to the cache immediately
+    
+    const userData = queryClient.getQueryData<User>(["/api/auth/user"]);
+    const queryKey = ["/api/addresses", userData?.id || "guest"];
+    
+    // Cancel any outgoing refetches
+    await queryClient.cancelQueries({ queryKey });
+    
+    // Snapshot the previous value
+    const previousAddresses = queryClient.getQueryData<AddressData[]>(queryKey);
+    
+    // Optimistically update to the new value
+    if (previousAddresses) {
+      const optimisticAddress: AddressData = {
+        id: address?.id || `temp-${Date.now()}`,
+        userid: userData?.id,
+        fullname: newAddressData.fullname,
+        phone: newAddressData.phone,
+        email: newAddressData.email || "",
+        addressline1: newAddressData.addressline1,
+        addressline2: newAddressData.addressline2 || "",
+        landmark: newAddressData.landmark || "",
+        city: newAddressData.city,
+        state: newAddressData.state,
+        postalcode: newAddressData.postalcode,
+        country: newAddressData.country,
+        addresstype: newAddressData.addresstype,
+        isdefault: newAddressData.isdefault,
+        createdat: new Date().toISOString(),
+        updatedat: new Date().toISOString(),
+        isactive: true,
+      };
+      
+      const newAddresses = address?.id
+        ? previousAddresses.map(addr => 
+            addr.id === address.id ? optimisticAddress : addr
+          )
+        : [...previousAddresses, optimisticAddress];
+      
+      queryClient.setQueryData(queryKey, newAddresses);
+    }
+    
+    // Return context with the previous addresses
+    return { previousAddresses };
+  },
+  onSettled: (data, error, variables, context) => {
+    // Refetch after error or success to ensure we have fresh data
+    const userData = queryClient.getQueryData<User>(["/api/auth/user"]);
+    const queryKey = ["/api/addresses", userData?.id || "guest"];
+    queryClient.invalidateQueries({ queryKey });
+  },
+});
 
   const onSubmit = (data: AddressFormData) => {
     saveAddressMutation.mutate(data);
@@ -692,108 +838,205 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
   // After adding an address, automatically select the default/new address
   const [pendingAutoSelect, setPendingAutoSelect] = useState(false);
 
-  const { data: addresses = [], isLoading, refetch } = useQuery<AddressData[]>({
-    queryKey: ["/api/addresses"],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/addresses");
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error('Failed to fetch addresses:', error);
+ const isRefetchingRef = useRef(false);
+    const { data: user, isLoading: isLoadingUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+const { data: addresses = [], isLoading: isLoadingAddresses, refetch:refetchAddresses  } = useQuery<AddressData[]>({
+  queryKey: ["/api/addresses", user?.id, "guest"], // Add "guest" to key
+  queryFn: async () => {
+    try {
+      // For guest users, we need to check localStorage/sessionStorage for email
+      const guestEmail = localStorage.getItem('guest-email') || 
+                        sessionStorage.getItem('guest-email') ||
+                        getEmailFromUrlParams();
+      
+      let url = "/api/addresses";
+      
+      if (user?.id) {
+        // Logged-in user - backend handles auth
+        url = "/api/addresses";
+      } else if (guestEmail) {
+        // Guest user - fetch by email
+        url = `/api/addresses?email=${encodeURIComponent(guestEmail)}`;
+      } else {
+        // No user and no guest email - return empty array
         return [];
       }
-    },
-    retry: 2,
-    staleTime: 0,
-  });
-
-  const deleteAddressMutation = useMutation({
-    mutationFn: async (addressId: string) => {
-      const response = await apiRequest(`/api/addresses/${addressId}`, {
-        method: "DELETE",
-      });
+      
+      console.log('Fetching addresses from:', url);
+      const response = await apiRequest(url);
       if (!response.ok) {
-        throw new Error(`Delete failed: ${response.status}`);
+        // If 404 or other error, return empty array for guest
+        if (!user?.id && response.status === 404) {
+          return [];
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response;
-    },
-      onSuccess: (_data, deletedId) => {
-        queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
-        refetch();
-        // If the deleted address is currently selected, clear shippingAddress
-        if (typeof window !== "undefined") {
-          // Get the current selected address from localStorage (guest) or context
-          // For guest users, shippingAddress is stored in localStorage as 'guest-shipping'
-          let currentShipping = null;
-          try {
-            const guestShipping = localStorage.getItem('guest-shipping');
-            if (guestShipping) {
-              const parsed = JSON.parse(guestShipping);
-              currentShipping = parsed.shippingAddress;
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Failed to fetch addresses:', error);
+      // For guest users, return empty array instead of throwing
+      if (!user?.id) {
+        return [];
+      }
+      throw error;
+    }
+  },
+  retry: 1,
+    staleTime: 30000, 
+    gcTime: 5 * 60 * 1000,
+  // Important: Only refetch when explicitly triggered or user state changes
+  refetchOnWindowFocus: false,
+  refetchOnMount: false,
+  refetchOnReconnect: false,
+});
+
+    const getEmailFromUrlParams = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('email');
+    }
+    return null;
+  };
+
+    const safeRefetch = useCallback(async () => {
+    if (isRefetchingRef.current) return;
+    
+    isRefetchingRef.current = true;
+    try {
+      await refetchAddresses();
+    } catch (error) {
+      console.error('Error refetching addresses:', error);
+    } finally {
+      setTimeout(() => {
+        isRefetchingRef.current = false;
+      }, 1000);
+    }
+  }, [refetchAddresses]);
+
+ const saveGuestEmail = (email: string) => {
+    // Only save guest email if user is not logged in
+    const { data: currentUser } = useQuery<User>({
+      queryKey: ["/api/auth/user"],
+      retry: false,
+      staleTime: 5 * 60 * 1000,
+    });
+    
+    if (!currentUser?.id) {
+      localStorage.setItem('guest-email', email);
+      sessionStorage.setItem('guest-email', email);
+    }
+  };
+
+
+const deleteAddressMutation = useMutation({
+  mutationFn: async (addressId: string) => {
+    // Get guest email for guest users
+    const userData = queryClient.getQueryData<User>(["/api/auth/user"]);
+    const isGuest = !userData?.id;
+    
+    let url = `/api/addresses/${addressId}`;
+    
+    // For guest users, add email query parameter
+    if (isGuest) {
+      const guestEmail = localStorage.getItem('guest-email') || 
+                        sessionStorage.getItem('guest-email') ||
+                        getEmailFromUrlParams();
+      
+      if (guestEmail) {
+        url += `?email=${encodeURIComponent(guestEmail)}`;
+      }
+    }
+    
+    console.log('DELETE URL:', url); // Debug log
+    
+    const response = await apiRequest(url, {
+      method: "DELETE",
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Delete failed: ${response.status}`);
+    }
+    return response;
+  },
+  onSuccess: (_data, deletedId) => {
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/addresses", user?.id || "guest"]  
+    });
+    safeRefetch();
+    
+    // Check if the deleted address is currently selected
+    if (typeof window !== "undefined") {
+      try {
+        const guestShipping = localStorage.getItem('guest-shipping');
+        if (guestShipping) {
+          const parsed = JSON.parse(guestShipping);
+          const currentShipping = parsed.shippingAddress;
+          
+          // Type guard to check if currentShipping has an id property
+          if (currentShipping && typeof currentShipping === 'object' && 'id' in currentShipping) {
+            if (currentShipping.id === deletedId) {
+              localStorage.removeItem('guest-shipping');
+              if (typeof onSelectAddress === 'function') {
+                onSelectAddress(null);
+              }
             }
-          } catch {}
-          // If the deleted address matches the selected shipping address, clear it
-          if (currentShipping && currentShipping.id === deletedId) {
-            localStorage.removeItem('guest-shipping');
           }
         }
-        // For all users, if the deleted address is currently selected, call onSelectAddress(null) to clear selection
-        try {
-          const guestShipping = localStorage.getItem('guest-shipping');
-          let currentShipping = null;
-          if (guestShipping) {
-            const parsed = JSON.parse(guestShipping);
-            currentShipping = parsed.shippingAddress;
-          }
-          if (currentShipping && currentShipping.id === deletedId) {
-            if (typeof onSelectAddress === 'function') {
-              onSelectAddress(null);
-            }
-          }
-        } catch {}
-        toast({
-          title: "Address deleted",
-          description: "Address has been deleted successfully",
-        });
-      },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete address",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const setDefaultMutation = useMutation({
-    mutationFn: async (addressId: string) => {
-      const response = await apiRequest(`/api/addresses/${addressId}/set-default`, {
-        method: "PUT",
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to set default: ${response.status}`);
+      } catch (error) {
+        console.error('Error checking selected address:', error);
       }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
-      toast({
-        title: "Default Address Set",
-        description: "This address has been set as your default address",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to set default address",
-        variant: "destructive",
-      });
-    },
-  });
+    }
+    
+    toast({
+      title: "Address deleted",
+      description: "Address has been deleted successfully",
+    });
+  },
+  onError: (error: any) => {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to delete address",
+      variant: "destructive",
+    });
+  },
+});
+
+
+const setDefaultMutation = useMutation({
+  mutationFn: async (addressId: string) => {
+    const response = await apiRequest(`/api/addresses/${addressId}/set-default`, {
+      method: "PUT",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to set default: ${response.status}`);
+    }
+    return response.json();
+  },
+  onSuccess: () => {
+    // Use consistent query key pattern
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/addresses", user?.id || "guest"] 
+    });
+    toast({
+      title: "Default Address Set",
+      description: "This address has been set as your default address",
+    });
+  },
+  onError: (error: any) => {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to set default address",
+      variant: "destructive",
+    });
+  },
+});
 
   const handleEditAddress = (address: AddressData) => {
     setEditingAddress({ ...address });
@@ -803,14 +1046,26 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
   const handleEditSuccess = () => {
     setShowEditDialog(false);
     setEditingAddress(null);
-    refetch();
+          safeRefetch();
   };
 
   const handleAddSuccess = () => {
     setShowAddDialog(false);
-    // Trigger auto-select on next addresses refresh
-    setPendingAutoSelect(true);
-    refetch();
+    // Force a refetch so the address list updates immediately for guests
+    if (typeof refetchAddresses === 'function') {
+      refetchAddresses().then((result) => {
+        const addresses = result.data;
+        if (Array.isArray(addresses) && addresses.length > 0) {
+          const defaultAddr = addresses.find(a => a.isdefault);
+          const toSelect = defaultAddr || addresses[addresses.length - 1];
+          onSelectAddress(toSelect);
+          toast({
+            title: "Address Selected",
+            description: `${toSelect.addresstype} address selected for delivery options`,
+          });
+        }
+      });
+    }
   };
 
   // When addresses update after adding, auto-select default (or first) to activate Delivery Options
@@ -826,8 +1081,16 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
       });
     }
   }, [pendingAutoSelect, addresses, onSelectAddress, toast]);
+const [isInitialLoad, setIsInitialLoad] = useState(true);
+const isLoading = isLoadingUser || isLoadingAddresses;
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoadingAddresses && addresses) {
+      setIsInitialLoad(false);
+    }
+  }, [isLoadingAddresses, addresses]);
+
+if (isInitialLoad && (isLoadingUser || isLoadingAddresses)) {
     return (
       <div className="space-y-4">
         {[...Array(2)].map((_, i) => (
@@ -843,29 +1106,46 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
   }
 
   return (
-    <div className="space-y-4">
+ <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-lg font-semibold">Select Delivery Address</h3>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-pink-600 hover:bg-pink-700 text-white w-full sm:w-auto">
+            <Button 
+              className="bg-pink-600 hover:bg-pink-700 text-white w-full sm:w-auto"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAddDialog(true);
+              }}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Address
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg bg-white max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
+          <DialogContent 
+            className="max-w-lg bg-white max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto"
+            onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Plus className="h-4 sm:h-5 w-4 sm:w-5" />
                 Add New Address
               </DialogTitle>
             </DialogHeader>
-            <CheckoutAddressForm onSuccess={handleAddSuccess} />
+            <CheckoutAddressForm 
+              onSuccess={() => {
+                handleAddSuccess();
+                // Close dialog after a short delay
+                setTimeout(() => {
+                  setShowAddDialog(false);
+                }, 500);
+              }} 
+            />
           </DialogContent>
         </Dialog>
       </div>
 
-      {addresses.length === 0 ? (
+      {addresses && addresses.length === 0 ? (
         <div className="text-center py-8">
           <MapPin className="h-8 sm:h-12 w-8 sm:w-12 mx-auto text-gray-400 mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No addresses yet</h3>
@@ -873,7 +1153,7 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
         </div>
       ) : (
         <div className="space-y-4">
-          {addresses.map((address) => {
+          {addresses && addresses.map((address) => {
             const distanceInfo = getPincodeDistanceInfo(address.postalcode);
             
             return (
@@ -946,7 +1226,10 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => address.id && setDefaultMutation.mutate(address.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            address.id && setDefaultMutation.mutate(address.id);
+                          }}
                           className="text-pink-600 hover:text-pink-700 hover:bg-pink-50 border-pink-600 w-full sm:w-auto text-xs sm:text-sm"
                           disabled={setDefaultMutation?.isPending}
                         >
@@ -955,19 +1238,33 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
                         </Button>
                       )}
 
-                      <Dialog open={showEditDialog && editingAddress?.id === address.id} onOpenChange={setShowEditDialog}>
+                      <Dialog 
+                        open={showEditDialog && editingAddress?.id === address.id} 
+                        onOpenChange={(open) => {
+                          if (!open) {
+                            setEditingAddress(null);
+                          }
+                          setShowEditDialog(open);
+                        }}
+                      >
                         <DialogTrigger asChild>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEditAddress(address)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditAddress(address);
+                            }}
                             className="text-pink-600 hover:text-pink-700 hover:bg-pink-50 border-pink-600 w-full sm:w-auto text-xs sm:text-sm"
                           >
                             <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                             Edit
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-lg bg-white max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
+                        <DialogContent 
+                          className="max-w-lg bg-white max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto"
+                          onInteractOutside={(e) => e.preventDefault()}
+                        >
                           <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                               <Edit className="h-4 sm:h-5 w-4 sm:w-5" />
@@ -977,7 +1274,14 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
                           {editingAddress && editingAddress.id === address.id && (
                             <CheckoutAddressForm
                               address={editingAddress}
-                              onSuccess={handleEditSuccess}
+                              onSuccess={() => {
+                                handleEditSuccess();
+                                // Close dialog after success
+                                setTimeout(() => {
+                                  setShowEditDialog(false);
+                                  setEditingAddress(null);
+                                }, 500);
+                              }}
                             />
                           )}
                         </DialogContent>
@@ -989,6 +1293,7 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
                             variant="outline"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-600 w-full sm:w-auto text-xs sm:text-sm"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                             Delete
@@ -1008,9 +1313,17 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
-                            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+                            <AlertDialogCancel 
+                              className="w-full sm:w-auto"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Cancel
+                            </AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => address.id && deleteAddressMutation.mutate(address.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                address.id && deleteAddressMutation.mutate(address.id);
+                              }}
                               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
                               disabled={deleteAddressMutation.isPending}
                             >
@@ -1251,11 +1564,6 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const [selectedAddressData, setSelectedAddressData] = useState<AddressData | null>(null);
 
-  interface User {
-    id: string;
-    email: string;
-    name?: string;
-  }
 
   const { data: user, isLoading: isLoadingUser } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -1734,23 +2042,15 @@ export default function Checkout() {
   // Automatically place order after payment is completed and on review step
   useEffect(() => {
     if (currentStep === 'review' && isPaymentCompleted && !isPlacingOrder) {
-      // Require authentication before creating the order
-      if (!user?.id) {
-        toast({
-          title: "Sign in required",
-          description: "Please sign in to confirm your order.",
-          variant: "destructive",
-        });
-        setLocation(`/signin`);
-        return;
-      }
+      // Allow both guest and logged-in users to place order after payment
       const autoPlaceOrder = async () => {
         setIsPlacingOrder(true);
         try {
+          // For guests, user?.id may be undefined/null, backend should handle guest order creation
           const orderResult = await placeOrder(user?.id, true);
           if (orderResult.success && orderResult.order) {
             toast({
-              title: "Order Created Successfully!",
+              title: "Order Placed Successfully!",
               description: "Redirecting to order confirmation...",
             });
             setLocation(`/order-confirmation/${orderResult.order.id}`);
@@ -2092,27 +2392,20 @@ export default function Checkout() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="px-4 sm:px-6">
-                        {!isLoadingUser ? (
+                    
                           <CheckoutAddressList onSelectAddress={handleAddressSelect} />
-                        ) : (
-                          <div className="flex items-center justify-center p-8">
-                            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-                            <span className="ml-2 text-muted-foreground">Loading addresses...</span>
-                          </div>
-                        )}
-
-                        {shippingAddress && selectedAddressData && (
-                          // Only show if selectedAddressData still exists in the address list
-                          <AddressExistenceChecker addressId={selectedAddressData.id}>
-                            <div className="mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                                <span className="font-medium text-green-800 text-sm sm:text-base">Selected Address:</span>
-                              </div>
-                              <p className="text-xs sm:text-sm text-green-700">{getShippingAddressString()}</p>
-                            </div>
-                          </AddressExistenceChecker>
-                        )}
+                      
+{shippingAddress && selectedAddressData && (
+  <AddressExistenceChecker addressId={selectedAddressData.id}>
+    <div className="mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <CheckCircle className="h-4 w-4 text-green-600" />
+        <span className="font-medium text-green-800 text-sm sm:text-base">Selected Address:</span>
+      </div>
+      <p className="text-xs sm:text-sm text-green-700">{getShippingAddressString()}</p>
+    </div>
+  </AddressExistenceChecker>
+)}
                     
                        
                       </CardContent>

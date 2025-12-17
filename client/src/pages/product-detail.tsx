@@ -478,40 +478,58 @@ export default function ProductDetail() {
   const isInCart = cart.isInCart(product.id);
   const quantity = cart.getItemQuantity(product.id);
 
-  const handleAddToCart = () => {
-    // If user is not signed in, redirect to signin and show a toast
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to add items to your cart.",
-        variant: "destructive",
-      });
-      const currentPath = window.location.pathname + window.location.search;
-      setLocation(`/signin?redirect=${encodeURIComponent(currentPath)}`);
-      return;
-    }
-
+const handleAddToCart = () => {
+  // Debug: log product and cart context
+  console.log('[ProductDetail] handleAddToCart product:', product);
+  console.log('[ProductDetail] handleAddToCart user:', user);
+  console.log('[ProductDetail] handleAddToCart cart context:', cart);
+  
+  // Check if product is in stock
+  if (!product.inStock) {
+    toast({
+      title: "Out of stock",
+      description: "This product is currently out of stock.",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  // Add to cart
+  try {
     cart.addToCart(product, 1);
-  };
-
-  const handleSaveForLater = () => {
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to save products to your favorites.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const isFavorited = favoriteStatus?.isFavorited;
     
-    if (isFavorited) {
-      removeFromFavoritesMutation.mutate();
-    } else {
-      addToFavoritesMutation.mutate();
-    }
-  };
+    // Show success toast
+    toast({
+      title: 'Added to cart!',
+      description: `${product.name} has been added to your cart`,
+      variant: 'default',
+    });
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    toast({
+      title: "Error",
+      description: "Failed to add item to cart. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleSaveForLater = () => {
+  if (!user) {
+    toast({
+      title: "Sign in required",
+      description: "Please sign in to save products to your favorites.",
+      variant: "destructive",
+    });
+    return;
+  }
+  const isFavorited = favoriteStatus?.isFavorited;
+  if (isFavorited) {
+    removeFromFavoritesMutation.mutate();
+  } else {
+    addToFavoritesMutation.mutate();
+  }
+};
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -749,31 +767,34 @@ export default function ProductDetail() {
               <Separator className="transition-all duration-500 animate-in fade-in" />
 
               {/* Minimal Custom Option UI */}
-              {((product as ProductWithCustom).iscustom || (product as ProductWithCustom).isCustom) && (
-                <div className="mb-6 animate-in fade-in duration-500 delay-200">
-                  <button
-                    onClick={() => {
-                      if (user) {
-                        setIsCustomPopupOpen(true);
-                      } else {
-                        const currentPath = window.location.pathname + window.location.search;
-                        setLocation(`/signin?redirect=${encodeURIComponent(currentPath)}`);
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-lg hover:border-pink-400 hover:bg-pink-50 transition-all duration-300 group hover:scale-[1.02] hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-pink-600 transition-transform duration-300 group-hover:scale-110" />
-                      <span className="text-sm font-medium text-gray-700 group-hover:text-pink-700 transition-colors duration-300">
-                        Customize this product
-                      </span>
-                    </div>
-                    <span className="text-xs text-pink-600 bg-pink-100 px-2 py-1 rounded transition-all duration-300 group-hover:scale-110 group-hover:bg-pink-200">
-                      Click here
-                    </span>
-                  </button>
-                </div>
-              )}
+          {((product as ProductWithCustom).iscustom || (product as ProductWithCustom).isCustom) && (
+  <div className="mb-6 animate-in fade-in duration-500 delay-200">
+    <button
+      onClick={() => {
+        if (user) {
+          setIsCustomPopupOpen(true);
+        } else {
+          toast({
+            title: "Sign in required",
+            description: "Please sign in to customize products.",
+            variant: "destructive",
+          });
+        }
+      }}
+      className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-lg hover:border-pink-400 hover:bg-pink-50 transition-all duration-300 group hover:scale-[1.02] hover:shadow-md"
+    >
+      <div className="flex items-center gap-2">
+        <MessageSquare className="w-4 h-4 text-pink-600 transition-transform duration-300 group-hover:scale-110" />
+        <span className="text-sm font-medium text-gray-700 group-hover:text-pink-700 transition-colors duration-300">
+          Customize this product
+        </span>
+      </div>
+      <span className="text-xs text-pink-600 bg-pink-100 px-2 py-1 rounded transition-all duration-300 group-hover:scale-110 group-hover:bg-pink-200">
+        {user ? "Click here" : "Sign in to customize"}
+      </span>
+    </button>
+  </div>
+)}
 
               <div className="animate-in fade-in duration-500 delay-300">
                 <h3 className="font-semibold text-gray-900 mb-3 transition-colors duration-300 hover:text-pink-700">Description</h3>

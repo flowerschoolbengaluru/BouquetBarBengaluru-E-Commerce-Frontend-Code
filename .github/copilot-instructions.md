@@ -1,15 +1,16 @@
 
 
 
-
 # Workspace AI Coding Agent Guide — Flower School E-Commerce & Admin
+
+> **Note:** These instructions apply to both the E-Commerce (BouquetBarBengaluru-E-Commerce-Frontend-Code) and Admin/Backend (FlowerSchool-E-commerce-Admin-allBackend-Code) apps in this monorepo. Update file/directory references as needed for your context.
 
 ## Big Picture Architecture
 
 - **Monorepo**: Three main apps — E-Commerce Frontend, Admin Frontend, Backend API. Shared conventions and some types.
 - **Frontend (BouquetBarBengaluru-E-Commerce-Frontend-Code)**: React 18, Vite, TypeScript, shadcn/ui, Radix UI, Tailwind CSS. Routing via Wouter (`setLocation`). Async cart context merges guest/user carts. Product images: check all fields (`imagefirst`...`imagefive`, fallback to `image`). Stock: support both `stockQuantity` and `stockquantity`.
-- **Admin Frontend (FlowerSchool-Admin-Frontend-Code)**: Vite + React + TypeScript SPA. UI via shadcn-ui, Tailwind. Route-level logic in `src/pages`, shared UI/features in `src/components`. API calls via `src/lib/api.ts` and React Query. Product/category/discount logic in `Admin.tsx`.
-- **Backend (FlowerSchool-E-commerce-Admin-allBackend-Code)**: TypeScript Express.js monolith. All business logic, API endpoints, and integrations in one codebase. Data access via storage abstraction (`storage.ts`, `database-storage.ts`). Background jobs, notifications, message queue, and email logic in `/services`. Database schema and Zod validation in `/shared/schema.ts` (Drizzle ORM, no migration system).
+- **Admin Frontend (FlowerSchool-Admin-Frontend-Code)**: Vite + React + TypeScript SPA. UI via shadcn-ui, Tailwind. Route-level logic in `client/src/pages`, shared UI/features in `client/src/components`. API calls via `client/src/lib/api.ts` and React Query. Product/category/discount logic in `Admin.tsx`.
+- **Backend (FlowerSchool-E-commerce-Admin-allBackend-Code)**: TypeScript Express.js monolith. All business logic, API endpoints, and integrations in one codebase. Data access via storage abstraction (`storage.ts`, `database-storage.ts`). Background jobs, notifications, message queue, and email logic in `/services`. Database schema and Zod validation in `/shared/schema.ts` (Drizzle ORM, no migration system). See also `Dockerfile` and `docker-compose.yml` for backend containerization.
 
 ## Critical Developer Workflows
 
@@ -33,9 +34,9 @@
 
 ## Key Examples & References
 
-- Add a page: Create in `src/pages`, add route in `main.tsx` (frontend/admin).
-- Add UI: Use shadcn-ui pattern in `src/components/ui`.
-- Fetch data: Use React Query via `src/lib/queryClient.ts` (admin/frontend).
+- Add a page: Create in `client/src/pages`, add route in `main.tsx` (frontend/admin).
+- Add UI: Use shadcn-ui pattern in `client/src/components/ui`.
+- Fetch data: Use React Query via `client/src/lib/queryClient.ts` (admin/frontend).
 - Product CRUD: See `Admin.tsx` for forms, image upload, category/discount logic.
 - Backend endpoints: All in `routes.ts` (~6500+ lines).
 - Database: Drizzle ORM tables/Zod schemas in `shared/schema.ts`. Access via `storage.ts` only.
@@ -47,10 +48,10 @@
 - **PM2**: Production process manager (`ecosystem.config.json`).
 - **Docker**: Multi-stage build, Postgres service.
 
----
 If any section is unclear, incomplete, or missing, please provide feedback or review referenced files for clarification. These instructions are living documentation—improvements are welcome.
-- `flowerschoolbengaluru-back-end/services/` — Background jobs, notifications, email, queue
-- `flowerschoolbengaluru-back-end/routes.ts` — All API endpoints
+- `FlowerSchool-E-commerce-Admin-allBackend-Code/services/` — Background jobs, notifications, email, queue
+- `FlowerSchool-E-commerce-Admin-allBackend-Code/routes.ts` — All API endpoints
+- `FlowerSchool-E-commerce-Admin-allBackend-Code/Dockerfile` and `docker-compose.yml` — Backend containerization
 
 ## Project-Specific Gotchas
 

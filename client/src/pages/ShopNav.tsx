@@ -266,6 +266,11 @@ export default function ShopNav() {
     removeFromCart
   } = useCart();
 
+  
+
+  // Calculate actual total items from cart context
+  const actualTotalItems = items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+
   // Logout mutation following project patterns
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -468,20 +473,17 @@ export default function ShopNav() {
               </div>
 
               <DialogFooter className="flex-col gap-2">
-                <Button
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:opacity-50 transform-gpu"
-                  onClick={() => {
-                    handleCartClose();
-                    if (!isAuthenticated) {
-                      setLocation('/signin');
-                    } else {
-                      setLocation('/checkout');
-                    }
-                  }}
-                  disabled={cartLoading || items.length === 0}
-                >
-                  {cartLoading ? 'Processing...' : 'Proceed to Checkout'}
-                </Button>
+            
+<Button
+  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:opacity-50 transform-gpu"
+  onClick={() => {
+    handleCartClose();
+    setLocation('/checkout');
+  }}
+  disabled={cartLoading || items.length === 0}
+>
+  {cartLoading ? 'Processing...' : 'Proceed to Checkout'}
+</Button>
                 <Button
                   variant="outline"
                   onClick={handleCartClose}
@@ -527,11 +529,12 @@ export default function ShopNav() {
                   className="relative h-10 w-10 rounded-full disabled:opacity-50 transform-gpu"
                   onClick={handleCartOpen}
                   disabled={cartModalRef.current}
+                  data-testid="button-cart"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-[1rem] px-1 text-[9px] font-semibold rounded-full bg-pink-600 text-white">
-                      {totalItems}
+                  {actualTotalItems > 0 && (
+                    <span className="absolute -right-1 flex items-center justify-center h-4 min-w-[1rem] px-1 text-[10px] font-semibold rounded-full bg-pink-600 text-white">
+                      {actualTotalItems}
                     </span>
                   )}
                 </Button>
