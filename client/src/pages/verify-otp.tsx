@@ -4,11 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, ShieldCheck, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757484444893.png";
+
+type FormErrors = {
+  otp?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+  general?: string;
+};
 
 export default function VerifyOtp() {
   const [formData, setFormData] = useState({
@@ -21,6 +28,14 @@ export default function VerifyOtp() {
   const [contact, setContact] = useState("");
   const [contactType, setContactType] = useState("email");
   const [step, setStep] = useState(1); // 1: OTP verification, 2: New password
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [touchedFields, setTouchedFields] = useState({
+    otp: false,
+    newPassword: false,
+    confirmPassword: false
+  });
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -43,17 +58,18 @@ export default function VerifyOtp() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "OTP Verified!",
-        description: "Please set your new password",
-      });
-      setStep(2);
+      setShowSuccess(true);
+      setSuccessMessage("OTP verified successfully! Please set your new password");
+      setTimeout(() => {
+        setShowSuccess(false);
+        setStep(2);
+      }, 2000);
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Invalid verification code",
-        variant: "destructive",
+      const errorMessage = error.message || "Invalid verification code";
+      setFormErrors({
+        otp: errorMessage,
+        general: errorMessage
       });
     },
   });
@@ -67,17 +83,14 @@ export default function VerifyOtp() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Password Reset Successfully!",
-        description: "You can now sign in with your new password",
-      });
-      setLocation("/signin");
+      setShowSuccess(true);
+      setSuccessMessage("Password reset successfully! Redirecting to sign in...");
+      setTimeout(() => setLocation("/signin"), 1500);
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reset password",
-        variant: "destructive",
+      const errorMessage = error.message || "Failed to reset password";
+      setFormErrors({
+        general: errorMessage
       });
     },
   });
@@ -91,29 +104,46 @@ export default function VerifyOtp() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "OTP Sent!",
-        description: `New verification code sent to your ${contactType}`,
-      });
+      setShowSuccess(true);
+      setSuccessMessage("New verification code sent successfully!");
+      setTimeout(() => setShowSuccess(false), 2000);
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to resend verification code",
-        variant: "destructive",
+      const errorMessage = error.message || "Failed to resend verification code";
+      setFormErrors({
+        general: errorMessage
       });
     },
   });
 
+  const validateOtp = (otp: string): string | undefined => {
+    if (!otp) return "Verification code is required";
+    if (otp.length !== 6) return "Code must be 6 digits";
+    if (!/^\d+$/.test(otp)) return "Code must contain only numbers";
+    return undefined;
+  };
+
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return undefined;
+  };
+
+  const validateConfirmPassword = (password: string): string | undefined => {
+    if (!password) return "Please confirm your password";
+    if (password !== formData.newPassword) return "Passwords do not match";
+    return undefined;
+  };
+
   const handleOtpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.otp || formData.otp.length !== 6) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid 6-digit verification code",
-        variant: "destructive",
-      });
+    setTouchedFields(prev => ({ ...prev, otp: true }));
+    setFormErrors(prev => ({ ...prev, general: undefined, otp: undefined }));
+    
+    const otpError = validateOtp(formData.otp);
+    if (otpError) {
+      setFormErrors({ otp: otpError });
       return;
     }
 
@@ -127,21 +157,18 @@ export default function VerifyOtp() {
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.newPassword || formData.newPassword.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters long",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
+    setTouchedFields(prev => ({ ...prev, newPassword: true, confirmPassword: true }));
+    setFormErrors(prev => ({ ...prev, general: undefined }));
+    
+    const passwordError = validatePassword(formData.newPassword);
+    const confirmError = validateConfirmPassword(formData.confirmPassword);
+    
+    const errors: FormErrors = {};
+    if (passwordError) errors.newPassword = passwordError;
+    if (confirmError) errors.confirmPassword = confirmError;
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
 
@@ -154,10 +181,45 @@ export default function VerifyOtp() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+
+    // Clear error when user starts typing
+    if (formErrors[name as keyof FormErrors] && touchedFields[name as keyof typeof touchedFields]) {
+      if (name === 'otp') {
+        const error = validateOtp(value);
+        setFormErrors(prev => ({ ...prev, otp: error }));
+      } else if (name === 'newPassword') {
+        const error = validatePassword(value);
+        setFormErrors(prev => ({ ...prev, newPassword: error }));
+        // Also validate confirm password if it exists
+        if (formData.confirmPassword) {
+          const confirmError = validateConfirmPassword(formData.confirmPassword);
+          setFormErrors(prev => ({ ...prev, confirmPassword: confirmError }));
+        }
+      } else if (name === 'confirmPassword') {
+        const error = validateConfirmPassword(value);
+        setFormErrors(prev => ({ ...prev, confirmPassword: error }));
+      }
+    }
+  };
+
+  const handleFieldBlur = (field: 'otp' | 'newPassword' | 'confirmPassword') => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    
+    if (field === 'otp') {
+      const error = validateOtp(formData.otp);
+      setFormErrors(prev => ({ ...prev, otp: error }));
+    } else if (field === 'newPassword') {
+      const error = validatePassword(formData.newPassword);
+      setFormErrors(prev => ({ ...prev, newPassword: error }));
+    } else if (field === 'confirmPassword') {
+      const error = validateConfirmPassword(formData.confirmPassword);
+      setFormErrors(prev => ({ ...prev, confirmPassword: error }));
+    }
   };
 
   const maskContact = (contact: string, type: string) => {
@@ -231,16 +293,21 @@ export default function VerifyOtp() {
             </div>
 
             {/* Back Button */}
-            <Link href={step === 1 ? "/forgot-password" : "#"}>
-              <Button 
-                variant="ghost" 
-                className="mb-6 text-gray-600 hover:text-gray-900"
-                onClick={step === 2 ? () => setStep(1) : undefined}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {step === 1 ? "Back to Reset" : "Back to OTP"}
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              className="mb-6 text-gray-600 hover:text-gray-900"
+              onClick={() => {
+                if (step === 1) {
+                  setLocation("/forgot-password");
+                } else {
+                  setStep(1);
+                  setFormErrors({});
+                }
+              }}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {step === 1 ? "Back to Reset" : "Back to OTP"}
+            </Button>
 
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader className="text-center pb-4">
@@ -256,33 +323,82 @@ export default function VerifyOtp() {
               </CardHeader>
               
               <CardContent className="space-y-6">
+                {/* Success Message */}
+                {showSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-fadeIn">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1">
+                        <p className="font-medium text-green-800">Success!</p>
+                        <p className="text-sm text-green-700">{successMessage}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* General Error Message */}
+                {formErrors.general && !showSuccess && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 animate-fadeIn">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1">
+                        <p className="font-medium text-destructive">Error</p>
+                        <p className="text-sm text-destructive/90">{formErrors.general}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {step === 1 ? (
                   <form onSubmit={handleOtpSubmit} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="otp" className="text-gray-700 font-medium">
-                        Verification Code
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="otp" className="text-gray-700 font-medium">
+                          Verification Code <span className="text-red-500">*</span>
+                        </Label>
+                        {touchedFields.otp && formErrors.otp && (
+                          <span className="text-xs text-destructive font-medium">
+                            {formErrors.otp}
+                          </span>
+                        )}
+                      </div>
                       <Input
                         id="otp"
                         name="otp"
                         type="text"
                         required
                         maxLength={6}
-                        className="text-center text-2xl tracking-wider border-gray-200 focus:border-primary focus:ring-primary/20"
+                        className={`text-center text-2xl tracking-wider ${
+                          touchedFields.otp && formErrors.otp
+                            ? "border-destructive focus:border-destructive focus:ring-destructive/20"
+                            : "border-gray-200 focus:border-primary focus:ring-primary/20"
+                        }`}
                         placeholder="000000"
                         value={formData.otp}
                         onChange={handleInputChange}
+                        onBlur={() => handleFieldBlur('otp')}
                         data-testid="input-otp"
                       />
+                      <p className="text-xs text-gray-500">
+                        Enter the 6-digit code sent to your {contactType}
+                      </p>
                     </div>
 
                     <Button 
                       type="submit" 
-                      className="w-full font-semibold py-3 text-lg"
-                      disabled={verifyOtpMutation.isPending}
+                      className="w-full font-semibold py-3 text-lg bg-primary hover:bg-primary/90 transition-all duration-200"
+                      disabled={verifyOtpMutation.isPending || showSuccess}
                       data-testid="button-verify-otp"
                     >
-                      {verifyOtpMutation.isPending ? "Verifying..." : "Verify Code"}
+                      {verifyOtpMutation.isPending ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Verifying...
+                        </span>
+                      ) : "Verify Code"}
                     </Button>
 
                     <div className="text-center">
@@ -291,8 +407,11 @@ export default function VerifyOtp() {
                         type="button"
                         variant="ghost"
                         className="text-primary hover:text-primary/80 font-semibold"
-                        onClick={() => resendOtpMutation.mutate()}
-                        disabled={resendOtpMutation.isPending}
+                        onClick={() => {
+                          setFormErrors({});
+                          resendOtpMutation.mutate();
+                        }}
+                        disabled={resendOtpMutation.isPending || showSuccess}
                         data-testid="button-resend-otp"
                       >
                         {resendOtpMutation.isPending ? "Sending..." : "Resend Code"}
@@ -302,20 +421,34 @@ export default function VerifyOtp() {
                 ) : (
                   <form onSubmit={handlePasswordSubmit} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="newPassword" className="text-gray-700 font-medium">
-                        New Password
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="newPassword" className="text-gray-700 font-medium">
+                          New Password <span className="text-red-500">*</span>
+                        </Label>
+                        {touchedFields.newPassword && formErrors.newPassword && (
+                          <span className="text-xs text-destructive font-medium">
+                            {formErrors.newPassword}
+                          </span>
+                        )}
+                      </div>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
+                          touchedFields.newPassword && formErrors.newPassword ? "text-destructive" : "text-gray-400"
+                        }`} />
                         <Input
                           id="newPassword"
                           name="newPassword"
                           type={showNewPassword ? "text" : "password"}
                           required
-                          className="pl-10 pr-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                          className={`pl-10 pr-10 ${
+                            touchedFields.newPassword && formErrors.newPassword
+                              ? "border-destructive focus:border-destructive focus:ring-destructive/20"
+                              : "border-gray-200 focus:border-primary focus:ring-primary/20"
+                          } transition-colors`}
                           placeholder="Enter new password"
                           value={formData.newPassword}
                           onChange={handleInputChange}
+                          onBlur={() => handleFieldBlur('newPassword')}
                           data-testid="input-new-password"
                         />
                         <button
@@ -331,20 +464,34 @@ export default function VerifyOtp() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">
-                        Confirm Password
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">
+                          Confirm Password <span className="text-red-500">*</span>
+                        </Label>
+                        {touchedFields.confirmPassword && formErrors.confirmPassword && (
+                          <span className="text-xs text-destructive font-medium">
+                            {formErrors.confirmPassword}
+                          </span>
+                        )}
+                      </div>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
+                          touchedFields.confirmPassword && formErrors.confirmPassword ? "text-destructive" : "text-gray-400"
+                        }`} />
                         <Input
                           id="confirmPassword"
                           name="confirmPassword"
                           type={showConfirmPassword ? "text" : "password"}
                           required
-                          className="pl-10 pr-10 border-gray-200 focus:border-primary focus:ring-primary/20"
+                          className={`pl-10 pr-10 ${
+                            touchedFields.confirmPassword && formErrors.confirmPassword
+                              ? "border-destructive focus:border-destructive focus:ring-destructive/20"
+                              : "border-gray-200 focus:border-primary focus:ring-primary/20"
+                          } transition-colors`}
                           placeholder="Confirm new password"
                           value={formData.confirmPassword}
                           onChange={handleInputChange}
+                          onBlur={() => handleFieldBlur('confirmPassword')}
                           data-testid="input-confirm-password"
                         />
                         <button
@@ -361,11 +508,19 @@ export default function VerifyOtp() {
 
                     <Button 
                       type="submit" 
-                      className="w-full font-semibold py-3 text-lg"
-                      disabled={resetPasswordMutation.isPending}
+                      className="w-full font-semibold py-3 text-lg bg-primary hover:bg-primary/90 transition-all duration-200"
+                      disabled={resetPasswordMutation.isPending || showSuccess}
                       data-testid="button-reset-password"
                     >
-                      {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                      {resetPasswordMutation.isPending ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Resetting...
+                        </span>
+                      ) : "Reset Password"}
                     </Button>
                   </form>
                 )}
@@ -383,6 +538,16 @@ export default function VerifyOtp() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
