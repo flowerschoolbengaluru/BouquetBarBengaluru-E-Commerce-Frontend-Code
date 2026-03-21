@@ -582,7 +582,7 @@ const handleSaveForLater = () => {
     "Expert floral arrangement",
     "Same-day delivery available",
     "Care instructions included",
-    "Satisfaction guaranteed"
+
   ];
 
   return (
@@ -875,22 +875,6 @@ const handleSaveForLater = () => {
 
               <Separator className="transition-all duration-500 animate-in fade-in delay-800" />
 
-              {/* Trust Indicators */}
-              <div className="grid grid-cols-3 gap-4 text-center animate-in fade-in duration-500 delay-900">
-                {[
-                  { icon: Truck, color: "text-green-600", text: "Free Delivery" },
-                  { icon: Shield, color: "text-blue-600", text: "Quality Assured" },
-                  { icon: RotateCcw, color: "text-purple-600", text: "Easy Returns" }
-                ].map((item, index) => (
-                  <div 
-                    key={index}
-                    className="flex flex-col items-center gap-2 p-3 rounded-lg transition-all duration-500 hover:scale-110 hover:bg-white hover:shadow-lg"
-                  >
-                    <item.icon className={`w-6 h-6 ${item.color} transition-transform duration-300 hover:scale-125`} />
-                    <span className="text-xs text-gray-600 transition-colors duration-300 hover:text-gray-900">{item.text}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
 
