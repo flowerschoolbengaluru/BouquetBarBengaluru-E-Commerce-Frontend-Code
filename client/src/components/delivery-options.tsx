@@ -1,16 +1,26 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Clock, Zap, AlertCircle } from "lucide-react";
+import { Truck, Clock, Zap, AlertCircle, CalendarDays } from "lucide-react";
 import { useCart } from "@/hooks/cart-context";
 import type { DeliveryOption as BaseDeliveryOption } from "@shared/schema";
 
 interface DeliveryOption extends BaseDeliveryOption {
   description: string;
 }
+
+const FUTURE_DATE_OPTION_ID = "future-date";
+
+const getTodayIso = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 interface DeliveryOptionsProps {
   pincodeDistance?: number;
@@ -25,6 +35,8 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
   } = useCart();
   
   const [options, setOptions] = useState<DeliveryOption[]>([]);
+  const [selectedFutureDate, setSelectedFutureDate] = useState<string>(getTodayIso());
+  const futureDateInputRef = useRef<HTMLInputElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,37 +65,36 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
   }, [loadDeliveryOptions]);
 
   // Filter delivery options based on pincode distance
+  // Only expose three options in the UI: Next Day, Same Day, Select Future Date
   const availableOptions = useMemo(() => {
-    if (!options || options.length === 0) {
-      return [];
-    }
+    const futureDateOption: DeliveryOption = {
+      id: FUTURE_DATE_OPTION_ID,
+      name: "Select Future Date",
+      price: "0",
+      estimatedDays: "",
+      description: "Choose a future delivery date from the calendar",
+    };
 
-    // If no distance info, show all options
-    if (pincodeDistance === undefined) {
-      return options;
-    }
-
+    // Normalize server-provided options to canonical Next/Same names
     const lower = (s: string) => s.toLowerCase();
-    if (pincodeDistance < 10) {
-      // Show Same Day and Next Day delivery
-      const filtered = options.filter(o =>
-        lower(o.name).includes('same day') ||
-        lower(o.name).includes('express') ||
-        lower(o.name).includes('next day') ||
-        lower(o.name).includes('next-day') ||
-        lower(o.name).includes('tomorrow')
-      );
-      return filtered.length > 0 ? filtered : options;
-    } else {
-      // Show only Next Day delivery
-      const filtered = options.filter(o =>
-        lower(o.name).includes('next day') ||
-        lower(o.name).includes('next-day') ||
-        lower(o.name).includes('tomorrow')
-      );
-      return filtered.length > 0 ? filtered : options;
+    const nextDay = options.find(o => lower(o.name).includes('next'));
+    const sameDay = options.find(o => lower(o.name).includes('same'));
+
+    const ordered: DeliveryOption[] = [];
+    if (nextDay) ordered.push({ ...nextDay, name: 'Next Day Delivery' } as DeliveryOption);
+    if (sameDay) ordered.push({ ...sameDay, name: 'Same Day Delivery' } as DeliveryOption);
+
+    // Ensure both are present (fallback to server options if missing)
+    if (!nextDay && options.length > 0) {
+      const pick = options.find(o => !ordered.some(x => x.id === o.id));
+      if (pick) ordered.push({ ...pick, name: 'Next Day Delivery' } as DeliveryOption);
     }
-  }, [options, pincodeDistance]);
+
+    // Finally append the future-date option
+    ordered.push(futureDateOption);
+
+    return ordered;
+  }, [options]);
 
   // Auto-select the best option based on distance when options change
   useEffect(() => {
@@ -141,11 +152,24 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
     return <Clock className="h-5 w-5" />;
   };
 
-  // Handle delivery option selection
+  // Handle delivery option selection (auto-focus calendar when future date chosen)
   const handleOptionChange = (optionId: string) => {
     const selectedOption = availableOptions.find(opt => opt.id === optionId);
     if (selectedOption) {
-      setDeliveryOption(selectedOption);
+      if (selectedOption.id === FUTURE_DATE_OPTION_ID) {
+        setDeliveryOption({
+          ...selectedOption,
+          name: `Future Date Delivery (${selectedFutureDate})`,
+          description: `Delivery on ${selectedFutureDate}`,
+        });
+
+        // Focus calendar input after render
+        setTimeout(() => {
+          futureDateInputRef.current?.focus();
+        }, 0);
+      } else {
+        setDeliveryOption(selectedOption);
+      }
     }
   };
 
@@ -180,7 +204,7 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
         <CardHeader>
           <CardTitle className="flex items-center">
             <Truck className="mr-2 h-5 w-5" />
-            Delivery Options
+            Delivery Optionsyu
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -249,28 +273,56 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
           className="space-y-3"
         >
           {availableOptions.map((option) => (
-            <div key={option.id} className="flex items-center space-x-3">
-              <RadioGroupItem 
-                value={option.id} 
-                id={`delivery-${option.id}`}
-                data-testid={`radio-delivery-${option.id}`}
-              />
-              <Label 
-                htmlFor={`delivery-${option.id}`}
-                className="flex-1 flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
-                data-testid={`label-delivery-${option.id}`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="text-primary">
-                    {getDeliveryIcon(option.name)}
-                  </div>
-                  <div>
-                    <div className="font-medium text-foreground">
-                      {option.name}
+            <div key={option.id} className="space-y-2">
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem 
+                  value={option.id} 
+                  id={`delivery-${option.id}`}
+                  data-testid={`radio-delivery-${option.id}`}
+                />
+                <Label 
+                  htmlFor={`delivery-${option.id}`}
+                  className="flex-1 flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+                  data-testid={`label-delivery-${option.id}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="text-primary">
+                      {option.id === FUTURE_DATE_OPTION_ID ? <CalendarDays className="h-5 w-5" /> : getDeliveryIcon(option.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground">
+                        {option.name}
+                      </div>
                     </div>
                   </div>
+                </Label>
+              </div>
+              {deliveryOption?.id === FUTURE_DATE_OPTION_ID && option.id === FUTURE_DATE_OPTION_ID && (
+                <div className="pl-11 pr-3">
+                  <Label htmlFor="future-delivery-date" className="block text-sm font-medium text-gray-700 mb-2">
+                    Select delivery date
+                  </Label>
+                  <input
+                    id="future-delivery-date"
+                    ref={futureDateInputRef}
+                    type="date"
+                    value={selectedFutureDate}
+                    min={getTodayIso()}
+                    onChange={(e) => {
+                      setSelectedFutureDate(e.target.value);
+                      if (deliveryOption?.id === FUTURE_DATE_OPTION_ID) {
+                        setDeliveryOption({
+                          ...option,
+                          name: `Future Date Delivery (${e.target.value})`,
+                          description: `Delivery on ${e.target.value}`,
+                        });
+                      }
+                    }}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                    data-testid="input-future-delivery-date"
+                  />
                 </div>
-              </Label>
+              )}
             </div>
           ))}
         </RadioGroup>

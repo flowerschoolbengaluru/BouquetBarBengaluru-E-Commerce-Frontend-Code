@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useCart } from "@/hooks/cart-context";
+import { getImageUrl } from "../lib/imageUtils";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import type { User as UserType } from "@shared/schema";
 
@@ -364,7 +365,7 @@ export default function Navigation() {
                   {items.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 border border-pink-100 rounded-lg bg-white">
                       <img
-                        src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                        src={getImageUrl(item.image || item.imagePath)}
                         alt={item.name}
                         className="w-12 h-12 object-cover rounded border border-pink-100 flex-shrink-0"
                       />

@@ -27,6 +27,7 @@ import Footer from "@/components/footer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getImageUrl } from "../lib/imageUtils";
 import bouquetBarLogo from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import { type Product, type User } from "@shared/schema";
 import { useCart } from "@/hooks/cart-context";
@@ -1238,7 +1239,7 @@ function ShopContent() {
                 <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
                   <div className="relative">
                     <img
-                      src={`data:image/jpeg;base64,${product.image}`}
+                      src={getImageUrl(product.image || product.imagePath)}
                       alt={product.name}
                       className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
                       onClick={() => setLocation(`/product/${product.id}`)}
@@ -1308,33 +1309,35 @@ function ShopContent() {
                         );
                       })()}
                     </div>
-
-
-                    {/* Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
-                        onClick={() => setLocation(`/product/${product.id}`)}
-                      >
-                        Details
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleAddToCart(product);
-                        }}
-                        disabled={!isProductInStock(product)}
-                        className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                      >
-                        {isInCart(product.id) ?
-                          `+${getItemQuantity(product.id)}` :
-                          (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
-                        }
-                      </Button>
-                    </div>
+{/* Buttons */}
+<div className="flex gap-2">
+  <button
+    onClick={(e) => {
+      e.preventDefault();
+      handleAddToCart(product);
+    }}
+    disabled={!isProductInStock(product)}
+    className="flex-1 text-xs text-pink-500 bg-transparent border border-pink-500 rounded-md cursor-pointer disabled:opacity-50 py-1 px-2"
+  >
+    {isInCart(product.id) ?
+      `+${getItemQuantity(product.id)}` :
+      (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
+    }
+  </button>
+  <Button
+    size="sm"
+    onClick={(e) => {
+      e.preventDefault();
+      if (isProductInStock(product)) {
+        setLocation(`/checkout?buyNow=${product.id}`);
+      }
+    }}
+    disabled={!isProductInStock(product)}
+    className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
+  >
+    Buy Now
+  </Button>
+</div>
                   </CardContent>
                 </Card>
               ))}
@@ -1769,30 +1772,35 @@ const CategoryProductsSection: React.FC = () => {
                     })()} 
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-xs"
-                      onClick={() => setLocation(`/product/${product.id}`)}
-                    >
-                      Details
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleAddToCart(product);
-                      }}
-                      disabled={!isProductInStock(product)}
-                      className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                    >
-                      {isInCart(product.id) ?
-                        `+${getItemQuantity(product.id)}` :
-                        (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock')
-                      }
-                    </Button>
-                  </div>
+<div className="flex gap-2"> 
+  <Button 
+    size="sm" 
+    onClick={(e) => { 
+      e.preventDefault(); 
+      handleAddToCart(product); 
+    }} 
+    disabled={!isProductInStock(product)} 
+    className="flex-1 text-xs bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600" 
+  > 
+    {isInCart(product.id) ? 
+      `+${getItemQuantity(product.id)}` : 
+      (isProductInStock(product) ? 'Add to Cart' : 'Out of Stock') 
+    } 
+  </Button> 
+  <Button 
+    size="sm" 
+    onClick={(e) => { 
+      e.preventDefault(); 
+      if (isProductInStock(product)) { 
+        setLocation(`/checkout?buyNow=${product.id}`); 
+      } 
+    }} 
+    disabled={!isProductInStock(product)} 
+    className="flex-1 text-xs bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600" 
+  > 
+    Buy Now 
+  </Button> 
+</div>
                 </CardContent>
               </Card>
             ))}

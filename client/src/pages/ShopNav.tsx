@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useCart } from "@/hooks/cart-context";
+import { getImageUrl } from "../lib/imageUtils";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import type { User as UserType } from "@shared/schema";
 import FlowerCategory from "./FlowerCategory";
@@ -407,7 +408,7 @@ export default function ShopNav() {
                     className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-pink-100 rounded-lg bg-white hover:bg-pink-25 transition-colors transform-gpu"
                   >
                     <img
-                      src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                      src={getImageUrl(item.image || item.imagePath)}
                       alt={item.name}
                       className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border border-pink-100"
                       loading="lazy"

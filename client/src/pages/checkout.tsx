@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef,useCallback  } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation,useSearch  } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { getImageUrl } from "../lib/imageUtils";
 // Helper component to check if address still exists
 // Helper component to check if address still exists
 function AddressExistenceChecker({ addressId, children }: { addressId?: string; children: React.ReactNode }) {
@@ -65,6 +66,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { loadRazorpay, createRazorpayOrder, verifyRazorpayPayment, getPaymentStatus, type RazorpayPaymentOptions } from "@/lib/razorpay";
+import type { Product as SharedProduct } from "@shared/schema";
 
 
 interface CartItem {
@@ -74,6 +76,8 @@ interface CartItem {
   quantity: number;
   category?: string;
   image?: string;
+  imagePath?: string;
+  originalprice?: any;
 }
 
 interface Address {
@@ -87,15 +91,15 @@ interface Address {
   state: string;
   postalCode: string;
   country: string;
-  addressType: "Home" | "Office" | "Other";
-  isDefault: boolean;
+  addressType?: "Home" | "Office" | "Other";
+  isDefault?: boolean;
 }
 
 interface DeliveryOption {
   id: string;
   name: string;
   price: number | string;
-  estimatedDays?: number;
+  estimatedDays?: string;
 }
 
 interface User {
@@ -838,6 +842,7 @@ function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: A
   // After adding an address, automatically select the default/new address
   const [pendingAutoSelect, setPendingAutoSelect] = useState(false);
 
+
  const isRefetchingRef = useRef(false);
     const { data: user, isLoading: isLoadingUser } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -1346,24 +1351,32 @@ if (isInitialLoad && (isLoadingUser || isLoadingAddresses)) {
 
 // Order Review Component
 interface OrderReviewProps {
+  items: CartItem[];
+  totalPrice: number;
+  appliedCoupon: any;
+  discountAmount: number;
+  paymentCharge: number;
+  paymentData: any;
+  shippingAddress: Address | null;
+  deliveryOption?: DeliveryOption | null;
   onPlaceOrder: () => void;
   onEdit: (section: 'cart' | 'address' | 'delivery' | 'payment') => void;
   isPlacingOrder: boolean;
 }
 
-function OrderReview({ onPlaceOrder, onEdit, isPlacingOrder }: OrderReviewProps) {
-  const {
-    items,
-    totalPrice,
-    appliedCoupon,
-    discountAmount,
-    finalAmount,
-    deliveryCharge,
-    paymentCharge,
-    paymentData,
-    shippingAddress,
-    deliveryOption
-  } = useCart();
+function OrderReview({
+  items,
+  totalPrice,
+  appliedCoupon,
+  discountAmount,
+  paymentCharge,
+  paymentData,
+  shippingAddress,
+  deliveryOption,
+  onPlaceOrder,
+  onEdit,
+  isPlacingOrder
+}: OrderReviewProps) {
 
   const formatPrice = (price: number | string) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
@@ -1413,7 +1426,7 @@ function OrderReview({ onPlaceOrder, onEdit, isPlacingOrder }: OrderReviewProps)
               <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <img
-                    src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                    src={getImageUrl(item.image || item.imagePath)}
                     alt={item.name}
                     className="h-12 w-12 rounded object-cover"
                   />
@@ -1563,6 +1576,32 @@ export default function Checkout() {
   const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
   const [, setLocation] = useLocation();
   const [selectedAddressData, setSelectedAddressData] = useState<AddressData | null>(null);
+
+
+  const search = useSearch();
+const buyNowProductId = new URLSearchParams(search).get("buyNow");
+const { data: buyNowProduct, isLoading: isBuyNowLoading } = useQuery<SharedProduct>({
+  queryKey: ["/api/products", buyNowProductId],
+  enabled: !!buyNowProductId,
+});
+
+const buyNowItem: CartItem | null = buyNowProduct
+  ? {
+      id: buyNowProduct.id,
+      name: buyNowProduct.name,
+      price: buyNowProduct.price,
+      quantity: 1,
+      category: buyNowProduct.category,
+      image: buyNowProduct.image,
+      imagePath: buyNowProduct.imagePath,
+      originalprice: buyNowProduct.originalprice,
+    }
+  : null;
+
+const displayItems = buyNowProductId ? (buyNowItem ? [buyNowItem] : []) : items;
+const displayTotalPrice = buyNowProductId && buyNowItem
+  ? parseFloat(String(buyNowItem.price))
+  : totalPrice;
 
 
   const { data: user, isLoading: isLoadingUser } = useQuery<User>({
@@ -1736,7 +1775,8 @@ export default function Checkout() {
   const handleRazorpayPayment = async () => {
     try {
       // Calculate total amount
-      const calculatedTotal = totalPrice + paymentCharge - discountAmount;
+      const effectiveSubtotal = buyNowItem ? displayTotalPrice : totalPrice;
+      const calculatedTotal = effectiveSubtotal + paymentCharge - discountAmount;
       
       if (calculatedTotal <= 0) {
         toast({
@@ -1758,7 +1798,7 @@ export default function Checkout() {
         notes: {
           customer_name: shippingAddress?.fullName || 'Customer',
           customer_email: shippingAddress?.email || '',
-          items_count: items.length.toString()
+          items_count: displayItems.length.toString()
         }
       };
 
@@ -1924,6 +1964,17 @@ export default function Checkout() {
     };
   }
 
+  const buyNowOrderOverrides = buyNowItem
+    ? {
+        items: displayItems,
+        subtotal: displayTotalPrice,
+        discountAmount,
+        paymentCharge,
+        total: displayTotalPrice + paymentCharge - discountAmount,
+        finalAmount: displayTotalPrice + paymentCharge - discountAmount,
+      }
+    : undefined;
+
   const handlePlaceOrder = async () => {
     // Require authentication before placing an order
     if (!user?.id) {
@@ -1939,7 +1990,7 @@ export default function Checkout() {
     setIsPlacingOrder(true);
 
     try {
-      const result: OrderResponse = await placeOrder(user?.id);
+      const result: OrderResponse = await placeOrder(user?.id, false, buyNowOrderOverrides);
 
       if (result.success && result.order) {
         const orderId = result.order.id;
@@ -1981,7 +2032,7 @@ export default function Checkout() {
   };
 
   useEffect(() => {
-    if (items.length > 0 && !completedSteps.includes('cart')) {
+    if (displayItems.length > 0 && !completedSteps.includes('cart')) {
       handleStepComplete('cart');
     }
 
@@ -1992,12 +2043,12 @@ export default function Checkout() {
     if (validatePaymentData() && !completedSteps.includes('payment')) {
       handleStepComplete('payment');
     }
-  }, [items.length, shippingAddress, deliveryOption, validatePaymentData, completedSteps]);
+  }, [displayItems.length, shippingAddress, deliveryOption, validatePaymentData, completedSteps]);
 
   const canProceed = () => {
     switch (currentStep) {
       case 'cart':
-        return items.length > 0;
+        return displayItems.length > 0;
       case 'shipping':
         return shippingAddress && deliveryOption;
       case 'payment':
@@ -2047,7 +2098,7 @@ export default function Checkout() {
         setIsPlacingOrder(true);
         try {
           // For guests, user?.id may be undefined/null, backend should handle guest order creation
-          const orderResult = await placeOrder(user?.id, true);
+          const orderResult = await placeOrder(user?.id, true, buyNowOrderOverrides);
           if (orderResult.success && orderResult.order) {
             toast({
               title: "Order Placed Successfully!",
@@ -2101,7 +2152,7 @@ export default function Checkout() {
           </Alert>
         )}
 
-        {!isLoading && items.length === 0 && (
+{!isLoading && !isBuyNowLoading && displayItems.length === 0 && (
           <Card className="text-center py-8 sm:py-12 mx-2 sm:mx-0" data-testid="card-empty-cart">
             <CardContent className="space-y-4 px-4">
               <ShoppingBag className="h-12 sm:h-16 w-12 sm:w-16 mx-auto text-muted-foreground" />
@@ -2119,7 +2170,7 @@ export default function Checkout() {
           </Card>
         )}
 
-        {(isLoading || items.length > 0) && (
+        {(isLoading || isBuyNowLoading || displayItems.length > 0) && (
           <div className="space-y-4 sm:space-y-8">
             <div className="grid gap-4 sm:gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-4 sm:space-y-8">
@@ -2129,7 +2180,7 @@ export default function Checkout() {
                     <CardHeader className="px-4 sm:px-6">
                       <CardTitle className="flex items-center text-lg sm:text-xl">
                         <ShoppingCart className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
-                        Cart Items ({isLoading ? "..." : items.length})
+                        Cart Items ({isLoading ? "..." : displayItems.length})
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-6">
@@ -2152,7 +2203,7 @@ export default function Checkout() {
                             ))}
                           </>
                         ) : (
-                          items.map((item) => {
+                      displayItems.map((item) => {
                             const isUpdating = updatingItems.has(item.id);
                             const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
                             const lineTotal = itemPrice * item.quantity;
@@ -2162,7 +2213,7 @@ export default function Checkout() {
                                 <CardContent className="p-4">
                                   <div className="flex items-start space-x-3">
                                     <img
-                                      src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                                      src={getImageUrl(item.image || item.imagePath)}
                                       alt={item.name}
                                       className="h-16 w-16 rounded object-cover flex-shrink-0"
                                       data-testid={`img-product-${item.id}`}
@@ -2242,7 +2293,7 @@ export default function Checkout() {
                                 <SkeletonRow />
                               </>
                             ) : (
-                              items.map((item) => {
+                              displayItems.map((item) => {
                                 const isUpdating = updatingItems.has(item.id);
                                 const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
                                 const lineTotal = itemPrice * item.quantity;
@@ -2252,17 +2303,19 @@ export default function Checkout() {
                                     <TableCell>
                                       <div className="flex items-center space-x-3 sm:space-x-4">
                                         <img
-                                          src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                                          src={getImageUrl(item.image || item.imagePath)}
                                           alt={item.name}
                                           className="h-12 w-12 sm:h-16 sm:w-16 rounded object-cover"
                                           data-testid={`img-product-${item.id}`}
                                         />
-                                        <div className="min-w-0">
-                                      
-                                          <p className="text-xs sm:hidden text-muted-foreground">
-                                            {formatPrice(item.price)}
-                                          </p>
-                                        </div>
+                                      <div className="min-w-0">
+  <p className="font-medium text-sm text-foreground truncate">
+    {item.name}
+  </p>
+  <p className="text-xs text-muted-foreground">
+    {formatPrice(item.price)}
+  </p>
+</div>
                                       </div>
                                     </TableCell>
 
@@ -2478,6 +2531,14 @@ export default function Checkout() {
                       ? null
                       : (
                         <OrderReview
+                          items={displayItems}
+                          totalPrice={displayTotalPrice}
+                          appliedCoupon={appliedCoupon}
+                          discountAmount={discountAmount}
+                          paymentCharge={paymentCharge}
+                          paymentData={paymentData}
+                          shippingAddress={shippingAddress}
+                          deliveryOption={deliveryOption}
                           onPlaceOrder={handlePlaceOrder}
                           onEdit={handleEditSection}
                           isPlacingOrder={isPlacingOrder}
@@ -2568,7 +2629,7 @@ export default function Checkout() {
                           <div className="space-y-2">
                             <div className="flex justify-between text-sm sm:text-base">
                               <span>Subtotal</span>
-                              <span data-testid="text-subtotal">{formatPrice(totalPrice)}</span>
+                              <span data-testid="text-subtotal">{formatPrice(displayTotalPrice)}</span>
                             </div>
                             {/* Delivery charges note below subtotal, right side */}
                           
@@ -2599,7 +2660,7 @@ export default function Checkout() {
                           <div className="flex justify-between text-lg font-semibold">
                             <span>Total</span>
                             <span data-testid="text-total">
-                              {formatPrice(totalPrice + paymentCharge - discountAmount)}
+                              {formatPrice(displayTotalPrice + paymentCharge - discountAmount)}
                             </span>
                           </div>
                           {appliedCoupon && discountAmount > 0 && (

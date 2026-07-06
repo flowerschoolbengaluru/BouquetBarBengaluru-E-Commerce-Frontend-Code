@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Truck, Shield, RotateCcw, X, Upload, MessageSquare, ZoomIn, ZoomOut } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getImageUrl } from "../lib/imageUtils";
 import type { Product as BaseProduct } from "@shared/schema";
 
 type ProductWithCustom = BaseProduct & {
@@ -631,7 +632,7 @@ const handleSaveForLater = () => {
                       } hover:scale-110`}
                     >
                       <img
-                        src={`data:image/jpeg;base64,${image}`}
+                        src={getImageUrl(image || product.imagePath)}
                         alt={`${product.name} view ${idx + 1}`}
                         className="w-full h-full object-cover transition-opacity duration-300 hover:opacity-80"
                         onLoad={() => setImageLoaded(true)}
@@ -652,7 +653,7 @@ const handleSaveForLater = () => {
                   >
                     <img
                       ref={imageRef}
-                      src={`data:image/jpeg;base64,${selectedImage || product.image}`}
+                      src={getImageUrl(selectedImage || product.image || product.imagePath)}
                       alt={product.name}
                       className={`w-full h-full object-cover transition-all duration-700 ${
                         imageLoaded ? 'scale-100 opacity-100' : 'scale-110 opacity-0'
@@ -823,55 +824,67 @@ const handleSaveForLater = () => {
               </div>
 
               <Separator className="transition-all duration-500 animate-in fade-in delay-600" />
+{/* Actions */}
+<div className="space-y-4 animate-in fade-in duration-500 delay-700">
+  <div className="grid gap-3 sm:grid-cols-2">
+    {isInCart && quantity > 0 ? (
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => cart.updateQuantity(product.id, quantity - 1)}
+          className="transition-all duration-200 hover:scale-110 hover:bg-red-50 hover:border-red-300"
+          data-testid="button-decrease-quantity"
+        >
+          -
+        </Button>
+        <span className="font-medium transition-all duration-300 hover:scale-110" data-testid="text-quantity">{quantity}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => cart.updateQuantity(product.id, quantity + 1)}
+          className="transition-all duration-200 hover:scale-110 hover:bg-green-50 hover:border-green-300"
+          data-testid="button-increase-quantity"
+        >
+          +
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => cart.removeFromCart(product.id)}
+          className="transition-all duration-200 hover:scale-105 hover:shadow-lg"
+          data-testid="button-remove-from-cart"
+        >
+          Remove
+        </Button>
+      </div>
+    ) : (
+      <button
+        className="flex-1 flex items-center justify-center text-sm border border-pink-500 text-pink-500 bg-transparent rounded-md py-2 px-4 cursor-pointer hover:bg-pink-50 transition-all duration-200 disabled:opacity-50"
+        onClick={handleAddToCart}
+        disabled={!product.inStock}
+        data-testid="button-add-to-cart"
+      >
+        <ShoppingCart className="w-4 h-4 mr-2" />
+        {product.inStock ? "Add to Cart" : "Out of Stock"}
+      </button>
+    )}
 
-              {/* Actions */}
-              <div className="space-y-4 animate-in fade-in duration-500 delay-700">
-                {isInCart && quantity > 0 ? (
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => cart.updateQuantity(product.id, quantity - 1)}
-                      className="transition-all duration-200 hover:scale-110 hover:bg-red-50 hover:border-red-300"
-                      data-testid="button-decrease-quantity"
-                    >
-                      -
-                    </Button>
-                    <span className="font-medium transition-all duration-300 hover:scale-110" data-testid="text-quantity">{quantity}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => cart.updateQuantity(product.id, quantity + 1)}
-                      className="transition-all duration-200 hover:scale-110 hover:bg-green-50 hover:border-green-300"
-                      data-testid="button-increase-quantity"
-                    >
-                      +
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => cart.removeFromCart(product.id)}
-                      className="transition-all duration-200 hover:scale-105 hover:shadow-lg"
-                      data-testid="button-remove-from-cart"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white transition-all duration-500 hover:scale-105 hover:shadow-xl transform-gpu"
-                    onClick={handleAddToCart}
-                    disabled={!product.inStock}
-                    data-testid="button-add-to-cart"
-                  >
-                    <ShoppingCart className="w-4 h-4 mr-2 transition-transform duration-300 group-hover:scale-110" />
-                    {product.inStock ? "Add to Cart" : "Out of Stock"}
-                  </Button>
-                )}
-
-            
-              </div>
+    <Button
+      size="lg"
+      className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white transition-all duration-500 hover:scale-105 hover:shadow-xl transform-gpu"
+      onClick={() => {
+        if (product.inStock) {
+          setLocation(`/checkout?buyNow=${product.id}`);
+        }
+      }}
+      disabled={!product.inStock}
+      data-testid="button-buy-now"
+    >
+      Buy Now
+    </Button>
+  </div>
+</div>
 
               <Separator className="transition-all duration-500 animate-in fade-in delay-800" />
 
@@ -896,7 +909,7 @@ const handleSaveForLater = () => {
                         <CardContent className="p-0">
                           <div className="aspect-square overflow-hidden rounded-t-lg">
                             <img
-                              src={`data:image/jpeg;base64,${relatedProduct.image}`}
+                              src={getImageUrl(relatedProduct.image || relatedProduct.imagePath)}
                               alt={relatedProduct.name}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                               loading="lazy"

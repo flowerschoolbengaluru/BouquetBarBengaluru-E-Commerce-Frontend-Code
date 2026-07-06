@@ -83,7 +83,14 @@ export interface CartContextType extends CartState {
   updatePaymentData: (data: Partial<PaymentData>) => void;
   clearPaymentData: () => void;
   validatePaymentData: (isRazorpayCompleted?: boolean) => boolean;
-  placeOrder: (userId?: string, isRazorpayCompleted?: boolean) => Promise<{ success: boolean; order?: any; error?: string; message?: string; calculatedPricing?: any }>;
+  placeOrder: (userId?: string, isRazorpayCompleted?: boolean, overrideOrderData?: {
+    items?: CartItem[];
+    subtotal?: number;
+    total?: number;
+    discountAmount?: number;
+    paymentCharge?: number;
+    finalAmount?: number;
+  }) => Promise<{ success: boolean; order?: any; error?: string; message?: string; calculatedPricing?: any }>;
   validateOrderData: (isRazorpayCompleted?: boolean) => { isValid: boolean; errors: string[] };
 }
 
@@ -1109,10 +1116,19 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     }
   }, [cart]);
 
-  const validateOrderData = useCallback((isRazorpayCompleted: boolean = false) => {
+  const validateOrderData = useCallback((isRazorpayCompleted: boolean = false, overrideOrderData?: {
+    items?: CartItem[];
+    subtotal?: number;
+    total?: number;
+    discountAmount?: number;
+    paymentCharge?: number;
+    finalAmount?: number;
+  }) => {
     const errors: string[] = [];
     
-    if (cart.items.length === 0) {
+    // Check items - use override if available
+    const itemsToCheck = overrideOrderData?.items ?? cart.items;
+    if (!itemsToCheck || itemsToCheck.length === 0) {
       errors.push('Cart is empty');
     }
     
@@ -1124,8 +1140,17 @@ export function CartProvider({ children, userId }: CartProviderProps) {
       errors.push('Delivery option must be selected');
     }
     
-    if (!validatePaymentData(isRazorpayCompleted)) {
-      errors.push('Payment information is incomplete');
+    // For Razorpay completed payments, only check if payment method is set
+    // Other validations (card details, etc.) are not needed as Razorpay handles them
+    if (isRazorpayCompleted) {
+      if (!cart.paymentData?.selectedMethod) {
+        errors.push('Payment method must be selected');
+      }
+    } else {
+      // For non-Razorpay payments, do full validation
+      if (!validatePaymentData(false)) {
+        errors.push('Payment information is incomplete');
+      }
     }
     
     return {
@@ -1134,9 +1159,18 @@ export function CartProvider({ children, userId }: CartProviderProps) {
     };
   }, [cart, validatePaymentData]);
 
-  const placeOrder = useCallback(async (userId?: string, isRazorpayCompleted: boolean = false) => {
-    const validation = validateOrderData(isRazorpayCompleted);
+  const placeOrder = useCallback(async (userId?: string, isRazorpayCompleted: boolean = false, overrideOrderData?: {
+    items?: CartItem[];
+    subtotal?: number;
+    total?: number;
+    discountAmount?: number;
+    paymentCharge?: number;
+    finalAmount?: number;
+  }) => {
+    // Pass overrideOrderData to validateOrderData
+    const validation = validateOrderData(isRazorpayCompleted, overrideOrderData);
     if (!validation.isValid) {
+      console.error('[ORDER PLACEMENT] Validation failed:', validation.errors);
       return {
         success: false,
         error: validation.errors.join(', ')
@@ -1172,6 +1206,13 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         return isNaN(parsed) ? 0 : parsed;
       };
       
+      // Use override data if provided, otherwise use cart data
+      const orderItems = overrideOrderData?.items ?? cart.items;
+      const orderSubtotal = overrideOrderData?.subtotal ?? cart.totalPrice;
+      const orderDiscount = overrideOrderData?.discountAmount ?? cart.discountAmount;
+      const orderPaymentCharge = overrideOrderData?.paymentCharge ?? cart.paymentCharge;
+      const orderTotal = overrideOrderData?.total ?? cart.finalAmount;
+
       // Construct order payload according to server schema
       const orderData = {
         // Customer information (required for both guest and authenticated users)
@@ -1184,7 +1225,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         requirements: '',
 
         // Cart items with proper structure
-        items: cart.items.map(item => {
+        items: orderItems.map(item => {
           const unitPrice = parsePrice(item.price);
           const totalPrice = unitPrice * item.quantity;
           return {
@@ -1197,7 +1238,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         }),
 
         // Pricing breakdown (top-level fields)
-        subtotal: cart.totalPrice,
+        subtotal: orderSubtotal,
 
         // Delivery information
         deliveryOptionId: cart.deliveryOption?.id || '',
@@ -1229,7 +1270,7 @@ export function CartProvider({ children, userId }: CartProviderProps) {
 
         // Payment information
         paymentMethod: mapPaymentMethod(cart.paymentData.selectedMethod),
-        paymentCharges: cart.paymentCharge,
+        paymentCharges: orderPaymentCharge,
         // include gateway transaction id if present (e.g., after Razorpay payment)
         paymentTransactionId: (cart.paymentData as any)?.paymentTransactionId,
         // if caller indicated the Razorpay flow completed, mark paymentStatus completed
@@ -1252,10 +1293,10 @@ export function CartProvider({ children, userId }: CartProviderProps) {
 
         // Coupon information
         couponCode: cart.appliedCoupon?.code,
-        discountAmount: cart.discountAmount,
+        discountAmount: orderDiscount,
 
         // Final total
-        total: cart.finalAmount,
+        total: orderTotal,
 
         // User information (optional for guest checkout)
         userId: userId || undefined

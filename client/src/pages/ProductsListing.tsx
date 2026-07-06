@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Filter, X, Search, ShoppingCart } from 'lucide-
 import { apiRequest } from "@/lib/queryClient";
 import { useCart } from '@/hooks/cart-context';
 import { useToast } from '@/hooks/use-toast';
+import { getImageUrl } from "../lib/imageUtils";
  
 interface Product {
   id: string;
@@ -21,6 +22,7 @@ interface Product {
   category: string;
   subcategory: string;
   image: string;
+  imagePath?: string;
   imagefirst?: string;
   imagesecond?: string;
   imagethirder?: string;
@@ -810,7 +812,7 @@ export default function ProductsListing() {
                     {product.image ? (
                       <>
                         <img
-                          src={`data:image/jpeg;base64,${product.image}`}
+                          src={getImageUrl(product.image || product.imagePath)}
                           alt={product.name}
                           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           loading="lazy"

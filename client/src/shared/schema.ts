@@ -12,13 +12,14 @@ export interface Product {
   description?: string;
   price: number | string;
   image?: string;
+  imagePath?: string;
   category?: string;
   subcategory?: string; // Added subcategory field
-  main_category?: string; // Added main_category field 
+  main_category?: string; // Added main_category field
   quantity?: number;
   stockquantity?: number; // Added for backend compatibility
   stockQuantity?: number; // Added for backend compatibility
-  originalprice: any;
+  originalprice?: any;
   discount_percentage?: number;
   discount_amount?: number;
   colour?: string;  
@@ -55,6 +56,7 @@ export interface DeliveryOption {
   name: string;
   price: string;
   estimatedDays: string;
+  description?: string;
 }
 
 export interface BlogPost {

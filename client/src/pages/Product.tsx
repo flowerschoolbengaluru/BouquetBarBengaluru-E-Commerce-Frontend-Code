@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { type Product } from "@shared/schema";
+import { getImageUrl } from "../lib/imageUtils";
 
 interface ProductProps {
   product: Product;
@@ -34,10 +35,11 @@ export default function ProductComponent({
     <Card key={product.id} className="overflow-hidden hover-elevate" data-testid={`card-product-${product.id}`}>
       <div className="relative">
         <img 
-          src={`data:image/jpeg;base64,${product.image}`}
+          src={getImageUrl(product.image || product.imagePath)}
           alt={product.name}
           className="w-full h-64 object-cover cursor-pointer"
           onClick={() => setLocation(`/product/${product.id}`)}
+          loading="lazy"
         />
         <button 
           className="absolute top-4 right-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center hover-elevate"

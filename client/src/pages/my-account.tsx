@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getImageUrl } from "../lib/imageUtils";
 import { User, Edit3, Trash2, Camera, MapPin, Phone, Mail, Globe, Save, X, Settings, Shield, Heart, ShoppingBag, HelpCircle, MessageCircle, Package, Calendar, Truck, Plus, Edit, Home, Building2, Star } from "lucide-react";
 import { Link } from "wouter";
 
@@ -768,6 +769,7 @@ interface Order {
   total: string;
   deliveryaddress: string;
   image: string;
+  imagePath?: string;
   id: string;
   name: string;
   description: string;
@@ -1656,7 +1658,7 @@ export default function MyAccount() {
                                 <div className="flex items-start gap-3">
                                   {order.image && (
                                     <img
-                                      src={order.image.startsWith('data:') ? order.image : `data:image/jpeg;base64,${order.image}`}
+                                      src={getImageUrl(order.image || order.imagePath)}
                                       alt={order.name}
                                       className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                                       onError={(e) => {

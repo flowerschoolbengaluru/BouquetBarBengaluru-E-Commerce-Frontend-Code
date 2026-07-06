@@ -5,6 +5,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getImageUrl } from "../lib/imageUtils";
 
 // Category Context
 const CategoryContext = createContext<{
@@ -43,6 +44,7 @@ interface Product {
   discounts_offers?: boolean;
   image?: string;
   images?: string[];
+  imagePath?: string;
   inStock: boolean;
   featured?: boolean;
   main_category?: string[];
@@ -348,7 +350,7 @@ const ProductCard: React.FC<{ product: Product; onProductClick: (productId: stri
     >
       <div className="relative">
         <img
-          src={product.image ? `data:image/jpeg;base64,${product.image}` : (product.images && product.images[0]) ? `data:image/jpeg;base64,${product.images[0]}` : '/placeholder-flower.jpg'}
+          src={getImageUrl(product.image || product.imagePath || (product.images && product.images[0]))}
           alt={product.name}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
