@@ -1382,7 +1382,7 @@ function ShopContent() {
                   {items.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 border border-pink-100 rounded-lg bg-white">
                       <img
-                        src={item.image ? `data:image/jpeg;base64,${item.image}` : "/placeholder-image.jpg"}
+                        src={getImageUrl(item.image)}
                         alt={item.name}
                         className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border border-pink-100 flex-shrink-0"
                       />
@@ -1691,7 +1691,7 @@ const CategoryProductsSection: React.FC = () => {
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
                 <div className="relative">
                   <img
-                    src={`data:image/jpeg;base64,${product.image}`}
+                    src={getImageUrl(product.image || product.imagePath)}
                     alt={product.name}
                     className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
                     onClick={() => setLocation(`/product/${product.id}`)}
@@ -1941,7 +1941,7 @@ const ProductNameSearchSection: React.FC<{ searchTerm: string | null; onClear: (
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
                 <div className="relative">
                   <img
-                    src={`data:image/jpeg;base64,${product.image}`}
+                    src={getImageUrl(product.image || product.imagePath)}
                     alt={product.name}
                     className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
                     onClick={() => setLocation(`/product/${product.id}`)}
@@ -2146,7 +2146,7 @@ const SubcategoryProductsSection: React.FC<{ subcategory: string | null; onClear
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
                 <div className="relative">
                   <img
-                    src={`data:image/jpeg;base64,${product.image}`}
+                    src={getImageUrl(product.image || product.imagePath)}
                     alt={product.name}
                     className="w-full h-40 md:h-48 lg:h-56 object-cover cursor-pointer"
                     onClick={() => setLocation(`/product/${product.id}`)}

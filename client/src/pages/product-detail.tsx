@@ -678,7 +678,7 @@ const handleSaveForLater = () => {
                           left: `${zoomPosition.x}%`,
                           top: `${zoomPosition.y}%`,
                           transform: 'translate(-50%, -50%)',
-                          background: `url(data:image/jpeg;base64,${selectedImage || product.image})`,
+                          background: `url(${getImageUrl(selectedImage || product.image || product.imagePath)})`,
                           backgroundSize: '300%',
                           backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
                           backgroundRepeat: 'no-repeat'
@@ -963,7 +963,7 @@ const handleSaveForLater = () => {
             {/* Zoomed image */}
             <div className="relative w-full h-full flex items-center justify-center">
               <img
-                src={`data:image/jpeg;base64,${selectedImage || product.image}`}
+                src={getImageUrl(selectedImage || product.image || product.imagePath)}
                 alt={product.name}
                 className="max-w-full max-h-full object-contain cursor-zoom-out"
                 onClick={closeZoomModal}
@@ -988,7 +988,7 @@ const handleSaveForLater = () => {
                   }`}
                 >
                   <img
-                    src={`data:image/jpeg;base64,${image}`}
+                    src={getImageUrl(image)}
                     alt={`View ${index + 1}`}
                     className="w-full h-full object-cover"
                   />

@@ -53,7 +53,8 @@ import {
   Mail,
   Eye,
   Truck,
-  CreditCard
+  CreditCard,
+  Loader2
 } from "lucide-react";
 import { useCart } from "@/hooks/cart-context";
 import { useToast } from "@/hooks/use-toast";
@@ -1574,6 +1575,7 @@ export default function Checkout() {
   const [completedSteps, setCompletedSteps] = useState<CheckoutStep[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
+  const [orderPlacementError, setOrderPlacementError] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const [selectedAddressData, setSelectedAddressData] = useState<AddressData | null>(null);
 
@@ -2090,42 +2092,53 @@ const displayTotalPrice = buyNowProductId && buyNowItem
     </TableRow>
   );
 
-  // Automatically place order after payment is completed and on review step
-  useEffect(() => {
-    if (currentStep === 'review' && isPaymentCompleted && !isPlacingOrder) {
-      // Allow both guest and logged-in users to place order after payment
-      const autoPlaceOrder = async () => {
-        setIsPlacingOrder(true);
-        try {
-          // For guests, user?.id may be undefined/null, backend should handle guest order creation
-          const orderResult = await placeOrder(user?.id, true, buyNowOrderOverrides);
-          if (orderResult.success && orderResult.order) {
-            toast({
-              title: "Order Placed Successfully!",
-              description: "Redirecting to order confirmation...",
-            });
-            setLocation(`/order-confirmation/${orderResult.order.id}`);
-          } else {
-            toast({
-              title: "Order Creation Failed",
-              description: orderResult.error || "Failed to create order. Please contact support.",
-              variant: "destructive",
-            });
-          }
-        } catch (orderError) {
-          console.error('Order creation error:', orderError);
-          toast({
-            title: "Order Creation Error",
-            description: "There was an issue creating your order. Please contact support.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsPlacingOrder(false);
-        }
-      };
-      autoPlaceOrder();
+  // Places the order after payment is completed. Extracted from the effect below
+  // so the "Try Again" button on the error screen can re-run the exact same logic.
+  const runAutoPlaceOrder = useCallback(async () => {
+    setIsPlacingOrder(true);
+    setOrderPlacementError(null);
+    try {
+      // For guests, user?.id may be undefined/null, backend should handle guest order creation
+      const orderResult = await placeOrder(user?.id, true, buyNowOrderOverrides);
+      if (orderResult.success && orderResult.order) {
+        toast({
+          title: "Order Placed Successfully!",
+          description: "Redirecting to order confirmation...",
+        });
+        setLocation(`/order-confirmation/${orderResult.order.id}`);
+      } else {
+        const message = orderResult.error || "Failed to create order. Please contact support.";
+        setOrderPlacementError(message);
+        toast({
+          title: "Order Creation Failed",
+          description: message,
+          variant: "destructive",
+        });
+      }
+    } catch (orderError) {
+      console.error('Order creation error:', orderError);
+      setOrderPlacementError("There was an issue creating your order. Please contact support.");
+      toast({
+        title: "Order Creation Error",
+        description: "There was an issue creating your order. Please contact support.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPlacingOrder(false);
     }
-  }, [currentStep, isPaymentCompleted, isPlacingOrder, user, placeOrder, toast, setLocation]);
+  }, [placeOrder, user, buyNowOrderOverrides, toast, setLocation]);
+
+  // Automatically place order after payment is completed and on review step.
+  // Guarded by orderPlacementError so a failed attempt doesn't immediately
+  // retry in a loop (isPlacingOrder resets to false after a failure, which
+  // would otherwise re-satisfy this effect's condition right away).
+  useEffect(() => {
+    // For Buy Now, wait until the product fetch (isBuyNowLoading) resolves so
+    // buyNowOrderOverrides isn't still empty/stale when the order is created.
+    if (currentStep === 'review' && isPaymentCompleted && !isPlacingOrder && !orderPlacementError && !isBuyNowLoading) {
+      runAutoPlaceOrder();
+    }
+  }, [currentStep, isPaymentCompleted, isPlacingOrder, orderPlacementError, isBuyNowLoading, runAutoPlaceOrder]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -2526,24 +2539,38 @@ const displayTotalPrice = buyNowProductId && buyNowItem
 
                 {currentStep === 'review' && (
                   <div className="mx-1 sm:mx-0">
-                    {/* Hide CardContent UI after payment is completed, only run logic */}
-                    {isPaymentCompleted
-                      ? null
-                      : (
-                        <OrderReview
-                          items={displayItems}
-                          totalPrice={displayTotalPrice}
-                          appliedCoupon={appliedCoupon}
-                          discountAmount={discountAmount}
-                          paymentCharge={paymentCharge}
-                          paymentData={paymentData}
-                          shippingAddress={shippingAddress}
-                          deliveryOption={deliveryOption}
-                          onPlaceOrder={handlePlaceOrder}
-                          onEdit={handleEditSection}
-                          isPlacingOrder={isPlacingOrder}
-                        />
-                      )}
+                    {orderPlacementError ? (
+                      <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                        <AlertCircle className="w-10 h-10 text-destructive" />
+                        <div>
+                          <p className="font-medium">Your payment succeeded, but we couldn't create your order.</p>
+                          <p className="text-sm text-muted-foreground mt-1">{orderPlacementError}</p>
+                        </div>
+                        <Button onClick={() => runAutoPlaceOrder()} disabled={isPlacingOrder}>
+                          {isPlacingOrder ? "Retrying..." : "Try Again"}
+                        </Button>
+                      </div>
+                    ) : isPaymentCompleted ? (
+                      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="font-medium">Processing your order...</p>
+                        <p className="text-sm text-muted-foreground">Please don't close or refresh this page.</p>
+                      </div>
+                    ) : (
+                      <OrderReview
+                        items={displayItems}
+                        totalPrice={displayTotalPrice}
+                        appliedCoupon={appliedCoupon}
+                        discountAmount={discountAmount}
+                        paymentCharge={paymentCharge}
+                        paymentData={paymentData}
+                        shippingAddress={shippingAddress}
+                        deliveryOption={deliveryOption}
+                        onPlaceOrder={handlePlaceOrder}
+                        onEdit={handleEditSection}
+                        isPlacingOrder={isPlacingOrder}
+                      />
+                    )}
                   </div>
                 )}
               </div>
