@@ -10,6 +10,9 @@ import type { DeliveryOption as BaseDeliveryOption } from "@shared/schema";
 
 interface DeliveryOption extends BaseDeliveryOption {
   description: string;
+  // Real delivery_options.id to submit to the backend when this option's own
+  // id is a UI-only sentinel (e.g. FUTURE_DATE_OPTION_ID) with no DB row.
+  backendOptionId?: string;
 }
 
 const FUTURE_DATE_OPTION_ID = "future-date";
@@ -67,14 +70,6 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
   // Filter delivery options based on pincode distance
   // Only expose three options in the UI: Next Day, Same Day, Select Future Date
   const availableOptions = useMemo(() => {
-    const futureDateOption: DeliveryOption = {
-      id: FUTURE_DATE_OPTION_ID,
-      name: "Select Future Date",
-      price: "0",
-      estimatedDays: "",
-      description: "Choose a future delivery date from the calendar",
-    };
-
     // Normalize server-provided options to canonical Next/Same names
     const lower = (s: string) => s.toLowerCase();
     const nextDay = options.find(o => lower(o.name).includes('next'));
@@ -90,8 +85,23 @@ export default function DeliveryOptions({ pincodeDistance, className }: Delivery
       if (pick) ordered.push({ ...pick, name: 'Next Day Delivery' } as DeliveryOption);
     }
 
-    // Finally append the future-date option
-    ordered.push(futureDateOption);
+    // "Select Future Date" is a UI-only choice — it has no row of its own in
+    // delivery_options, so the backend would reject FUTURE_DATE_OPTION_ID as
+    // an invalid delivery option. Piggyback it on a real option's id/price
+    // (via backendOptionId) so order placement always submits a genuine,
+    // valid delivery_options id, while keeping a distinct id for the radio
+    // group/UI selection logic.
+    const backingOption = nextDay || sameDay || options[0];
+    if (backingOption) {
+      const futureDateOption: DeliveryOption = {
+        ...backingOption,
+        id: FUTURE_DATE_OPTION_ID,
+        name: "Select Future Date",
+        description: "Choose a future delivery date from the calendar",
+        backendOptionId: backingOption.id,
+      } as DeliveryOption;
+      ordered.push(futureDateOption);
+    }
 
     return ordered;
   }, [options]);

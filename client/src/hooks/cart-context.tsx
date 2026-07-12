@@ -1241,7 +1241,10 @@ export function CartProvider({ children, userId }: CartProviderProps) {
         subtotal: orderSubtotal,
 
         // Delivery information
-        deliveryOptionId: cart.deliveryOption?.id || '',
+        // Some delivery options (e.g. "Select Future Date") are UI-only sentinels
+        // with no real delivery_options row; backendOptionId carries the actual
+        // DB id to submit in that case.
+        deliveryOptionId: (cart.deliveryOption as any)?.backendOptionId || cart.deliveryOption?.id || '',
         deliveryCharge: 0, // Always 0 - no delivery charges
         deliveryDate: undefined, // optional
 

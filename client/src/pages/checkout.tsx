@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getImageUrl } from "../lib/imageUtils";
-// Helper component to check if address still exists
-// Helper component to check if address still exists
+
 function AddressExistenceChecker({ addressId, children }: { addressId?: string; children: React.ReactNode }) {
   // Get user data
   const { data: user } = useQuery<User>({
@@ -835,7 +834,7 @@ const saveAddressMutation = useMutation({
 }
 
 // Address List Component for Checkout
-function CheckoutAddressList({ onSelectAddress }: { onSelectAddress: (address: AddressData | null) => void }) {
+function CheckoutAddressList({ onSelectAddress, selectedAddressId }: { onSelectAddress: (address: AddressData | null) => void; selectedAddressId?: string }) {
   const { toast } = useToast();
   const [editingAddress, setEditingAddress] = useState<AddressData | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -1162,10 +1161,13 @@ if (isInitialLoad && (isLoadingUser || isLoadingAddresses)) {
           {addresses && addresses.map((address) => {
             const distanceInfo = getPincodeDistanceInfo(address.postalcode);
             
+            const isSelected = selectedAddressId
+              ? address.id === selectedAddressId
+              : address.isdefault;
             return (
               <Card
                 key={address.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${address.isdefault ? 'ring-2 ring-pink-500 bg-pink-50/30 border-pink-200' : 'border-gray-200'
+                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-pink-500 bg-pink-50/30 border-pink-200' : 'border-gray-200'
                   }`}
                 onClick={() => onSelectAddress(address)}
               >
@@ -1183,6 +1185,12 @@ if (isInitialLoad && (isLoadingUser || isLoadingAddresses)) {
                           <Badge variant="secondary" className="bg-pink-100 text-pink-700 border-pink-200 text-xs">
                             <Star className="h-3 w-3 mr-1 fill-pink-600" />
                             Default
+                          </Badge>
+                        )}
+                        {isSelected && (
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Selected
                           </Badge>
                         )}
                       </div>
@@ -2459,7 +2467,7 @@ const displayTotalPrice = buyNowProductId && buyNowItem
                       </CardHeader>
                       <CardContent className="px-4 sm:px-6">
                     
-                          <CheckoutAddressList onSelectAddress={handleAddressSelect} />
+                          <CheckoutAddressList onSelectAddress={handleAddressSelect} selectedAddressId={selectedAddressData?.id} />
                       
 {shippingAddress && selectedAddressData && (
   <AddressExistenceChecker addressId={selectedAddressData.id}>
