@@ -735,15 +735,15 @@ const FlowerCategory: React.FC = () => {
       // Clear previous selections and set only the new one
       const newSelected = new Set([item]);
       setSelectedSubcategories(newSelected);
-      
-      // Navigate to the selected subcategory
-      const url = `/products?main_category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
-      window.location.href = url;
-      return;
     }
-    
-    // Single selection for other categories
-    window.location.href = `/products?main_category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
+
+    // Navigate client-side to the selected subcategory (avoids a hard page
+    // reload that depends on the server rewriting /products to index.html)
+    const path = `/products?main_category=${encodeURIComponent(categoryId)}&subcategory=${encodeURIComponent(item)}`;
+    setLocation(path);
+    window.dispatchEvent(new CustomEvent('locationchange', {
+      detail: { path, type: 'subcategory-navigation' }
+    }));
   };
 
   const handleCategoryClick = (categoryId: string) => {
