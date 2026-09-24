@@ -111,6 +111,7 @@ export default function ProductsListing() {
 
   const [filterConfigs, setFilterConfigs] = useState({
     priceRanges: [
+      { label: '1 to 499', value: [1, 499] as [number, number] },
       { label: '500 to 999', value: [500, 999] as [number, number] },
       { label: '1000 to 1499', value: [1000, 1499] as [number, number] },
       { label: '1500 to 2999', value: [1500, 2999] as [number, number] },
