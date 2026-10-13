@@ -356,16 +356,16 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3">
                 <li>
-                  <Link href="/refund-policy">
+                  <Link href="/shipping-info">
                     <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Refund Policy
+                     Delivary Policy
                     </button>
                   </Link>
                 </li>
                 <li>
-                  <Link href="/shipping-info">
+                  <Link href="/refund-policy">
                     <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Shipping Information
+                      Refund Policy
                     </button>
                   </Link>
                 </li>
@@ -383,20 +383,7 @@ export default function Footer() {
                     </button>
                   </Link>
                 </li>
-                <li>
-                  <Link href="/course-terms">
-                    <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Course Terms
-                    </button>
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/careers">
-                    <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Career Opportunities
-                    </button>
-                  </Link>
-                </li>
+              
               </ul>
 
               {/* Updated Newsletter Section */}
