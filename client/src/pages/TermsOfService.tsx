@@ -148,10 +148,10 @@ export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <Link href="/">
+        <Link href="/shop">
           <button className="mb-8 inline-flex items-center gap-2 rounded text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500">
             <ArrowLeft className="h-4 w-4" />
-            Back to Home
+            Back to Shop
           </button>
         </Link>
 
