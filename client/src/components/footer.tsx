@@ -321,13 +321,7 @@ export default function Footer() {
                     </button>
                   </Link>
                 </li>
-                <li>
-                  <Link href="/terms-of-service">
-                    <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Terms of Service
-                    </button>
-                  </Link>
-                </li>
+                      
               </ul>
 
               {/* Updated Newsletter Section */}

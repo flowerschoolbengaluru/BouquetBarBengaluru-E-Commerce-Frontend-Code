@@ -21,7 +21,7 @@ import OrderTracking from "@/pages/order-tracking";
 import type { User } from "@shared/schema";
 import ProductsListing from "./pages/ProductsListing";
 import MainCategoryAllProducts from "./pages/MainCategoryAllProducts";
-import TermsOfService from "./pages/TermsOfService";
+
 import PrivacyPolicy from "./pages/Privacypolicy ";
 import RefundPolicy from "./pages/RefundPolicy";
 import DeliveryPolicy from "./pages/DeliveryPolicy";
@@ -45,8 +45,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/verify-otp" component={VerifyOtp} />
       <Route path="/my-account" component={MyAccount} />
-     <Route path="/terms-of-service" component={TermsOfService} />
-     {/* <Route path="/privacy-policy" component={PrivacyPolicy} /> */}
+
      <Route path="/shipping-info" component={DeliveryPolicy} />
      <Route path="/refund-policy" component={RefundPolicy} />
      <Route path="/privacy-policy" component={PrivacyPolicy} />
