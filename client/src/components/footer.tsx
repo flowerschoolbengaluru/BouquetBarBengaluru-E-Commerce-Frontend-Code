@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Instagram, MessageCircle, Facebook, Linkedin, Twitter, Globe2, CreditCard, Headphones } from "lucide-react";
+import { Instagram, MessageCircle, Facebook, Linkedin, Twitter, CreditCard, Headphones } from "lucide-react";
 import logoPath from "@assets/E_Commerce_Bouquet_Bar_Logo_1757433847861.png";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -21,7 +21,7 @@ export default function Footer() {
   const handleNavigation = (path: string) => {
     if (path === '/') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      
+
       setTimeout(() => {
         const heroSection = document.getElementById('home');
         const ShopSection = document.getElementById('shop')
@@ -38,7 +38,7 @@ export default function Footer() {
   // Updated newsletter submission with API integration
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newsletterEmail.trim()) return;
 
     setIsSubmitting(true);
@@ -50,19 +50,19 @@ export default function Footer() {
         method: 'POST',
         body: JSON.stringify({ email: newsletterEmail })
       });
-      
+
       setSubscriptionStatus("success");
       setNewsletterEmail("");
-      
+
       // Reset success message after 5 seconds
       setTimeout(() => {
         setSubscriptionStatus("idle");
       }, 5000);
-      
+
     } catch (error) {
       console.error('Newsletter subscription failed:', error);
       setSubscriptionStatus("error");
-      
+
       // Reset error message after 5 seconds
       setTimeout(() => {
         setSubscriptionStatus("idle");
@@ -104,16 +104,13 @@ export default function Footer() {
 
             {/* Brand Description */}
             <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed font-light">
-              India's premier floral design institute and online flower marketplace. 
+              India's premier floral design institute and online flower marketplace.
               Transforming passion into expertise through professional floral education and premium flower collections.
             </p>
 
-            {/* Info Section (3 columns directly below description) */}
+            {/* Info Section (2 items, centered side by side) */}
             <div className="mt-12">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
-                {/* Worldwide Delivery */}
-                
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-3xl mx-auto text-center">
                 {/* Safe Payments */}
                 <div className="flex flex-col items-center">
                   <CreditCard className="w-8 h-8 text-pink-600 mb-3" />
@@ -126,7 +123,7 @@ export default function Footer() {
                 </div>
 
                 {/* Help Center */}
-                <div className="flex flex-col items-center md:items-end">
+                <div className="flex flex-col items-center">
                   <Headphones className="w-8 h-8 text-pink-600 mb-3" />
                   <h4 className="text-lg font-semibold text-gray-900">
                     Dedicated Help Center
@@ -137,8 +134,8 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Footer Links Grid */}
-          <div className="grid md:grid-cols-4 gap-10 mb-16">
+          {/* Footer Links Grid (3 columns spread evenly) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-16 mb-16">
             {/* Company Information */}
             <div className="space-y-6">
               <h4 className="text-xl font-semibold text-gray-900 pb-2 inline-block">
@@ -208,58 +205,6 @@ export default function Footer() {
               </div>
             </div>
 
-            {/* Navigation Links */}
-            <div className="space-y-6">
-              <h4 className="text-xl font-semibold text-gray-900 pb-2 inline-block">
-                Navigation
-              </h4>
-              <ul className="space-y-3">
-                <li>
-                  <Link href="/">
-                    <button
-                      onClick={() => handleNavigation('/')}
-                      className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left"
-                    >
-                      Home
-                    </button>
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/shop">
-                    <button 
-                    onClick={() => handleNavigation('/shop')}
-                    className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                      Shop
-                    </button>
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    onClick={() => scrollToSection('school')}
-                    className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left"
-                  >
-                    School
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => scrollToSection('gallery')}
-                    className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left"
-                  >
-                    Gallery
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => scrollToSection('contact')}
-                    className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left"
-                  >
-                    Contact
-                  </button>
-                </li>
-              </ul>
-            </div>
-
             {/* Services */}
             <div className="space-y-6">
               <h4 className="text-xl font-semibold text-gray-900 pb-2 inline-block">
@@ -268,7 +213,7 @@ export default function Footer() {
               <ul className="space-y-3">
                 <li>
                   <Link href="/shop">
-                    <button 
+                    <button
                       onClick={() => {
                         if (window.location.pathname !== '/shop') {
                           window.location.href = '/shop#fresh-flowers';
@@ -284,7 +229,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link href="/shop">
-                    <button 
+                    <button
                       onClick={() => {
                         if (window.location.pathname !== '/shop') {
                           window.location.href = '/shop#premium';
@@ -300,7 +245,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link href="/shop">
-                    <button 
+                    <button
                       onClick={() => {
                         if (window.location.pathname !== '/shop') {
                           window.location.href = '/shop#wedding';
@@ -316,7 +261,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link href="/shop">
-                    <button 
+                    <button
                       onClick={() => {
                         if (window.location.pathname !== '/shop') {
                           window.location.href = '/shop#corporate';
@@ -358,7 +303,7 @@ export default function Footer() {
                 <li>
                   <Link href="/shipping-info">
                     <button className="text-gray-600 hover:text-gray-900 transition-all duration-300 font-medium w-full text-left">
-                     Delivary Policy
+                      Delivery Policy
                     </button>
                   </Link>
                 </li>
@@ -383,7 +328,6 @@ export default function Footer() {
                     </button>
                   </Link>
                 </li>
-              
               </ul>
 
               {/* Updated Newsletter Section */}
@@ -392,14 +336,14 @@ export default function Footer() {
                 <p className="text-gray-600 text-xs mb-3">
                   Get updates on promotions and offers coupons.
                 </p>
-                
+
                 {/* Status Messages */}
                 {subscriptionStatus === "success" && (
                   <div className="mb-3 p-2 bg-green-100 text-green-700 text-xs rounded">
                     ✅ Thank you for subscribing!
                   </div>
                 )}
-                
+
                 {subscriptionStatus === "error" && (
                   <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded">
                     ❌ Subscription failed. Please try again.
